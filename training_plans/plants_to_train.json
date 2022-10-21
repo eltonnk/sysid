@@ -1,0 +1,10 @@
+{
+    "plan": 
+    [
+        {
+            "num_order": 5, 
+            "denum_order": 6,
+            "better_cond_method" : "normalizing"
+        }
+    ]
+}

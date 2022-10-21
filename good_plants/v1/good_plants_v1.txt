@@ -1,0 +1,10 @@
+plant_n1_d3_st_ds0_reg4.4
+plant_n1_d3_st_ds1_reg1.391402170474087
+plant_n1_d3_st_ds2_reg8.8
+plant_n1_d3_st_ds3_reg13.91402170474087
+plant_n1_d3_st_ds4_reg0.08800000000000002
+plant_n1_d3_no_ds0_reg2.782804340948174
+plant_n1_d3_no_ds1_reg0.0
+plant_n1_d3_no_ds2_reg6.600000000000001
+plant_n1_d3_no_ds3_reg6.957010852370435
+plant_n1_d3_no_ds4_reg0.1391402170474087
