@@ -10,7 +10,7 @@ import numpy as np
 # from scipy import signal
 from matplotlib import pyplot as plt
 import pathlib
-import part_1_util as util
+import plant_util as util
 
 
 import time

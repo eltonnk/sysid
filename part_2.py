@@ -8,7 +8,7 @@ James Forbes
 import numpy as np
 from matplotlib import pyplot as plt
 import control
-import part_1_util as util
+import plant_util as util
 
 # Functions
 def circle(x_c, y_c, r):
