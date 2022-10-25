@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import control
 import plant_util as util
+import pathlib
 
 # Functions
 def circle(x_c, y_c, r):
@@ -58,6 +59,10 @@ def robust_nyq(P_nom, W2, wmin, wmax, N_w):
 
 
 if __name__ == '__main__':
+    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+    VERSION = 'v2'
+
+    REFERENCE_FILE_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'DATA/reference/ref.csv')
 
     show_graphs = True
     investigate_ORHP = True
@@ -79,7 +84,7 @@ if __name__ == '__main__':
     w_shared = np.logspace(-3, 3, N_w)
 
     # Create nominal transfer function
-    P_nom_plant = util.load_plant_from_file('good_plants/v2/P_nom_v2.json')
+    P_nom_plant = util.Plant.from_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/P_nom_{VERSION}.json')
     P = P_nom_plant.delta_y_over_delta_u_c
     if investigate_ORHP:
         print(f'Nominal P = {P}\n')
@@ -87,7 +92,7 @@ if __name__ == '__main__':
         print(f'Poles of Nominal P: {P.poles()}')
 
     # W2, uncertainty weight
-    W2_plant = util.load_plant_from_file('good_plants/v2/W2_v2.json')
+    W2_plant = util.Plant.from_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/W2_{VERSION}.json')
     W2 = W2_plant.delta_y_over_delta_u_c
 
     mag_abs_W2, _, w = control.bode(W2, w_shared, plot=False)
@@ -299,7 +304,7 @@ if __name__ == '__main__':
 
     # Simulate closed-loop system.
     # Load profile to track
-    data_ref = np.loadtxt('DATA/reference/ref.csv',
+    data_ref = np.loadtxt(REFERENCE_FILE_PATH,
                             dtype=float,
                             delimiter=',',
                             skiprows=1,

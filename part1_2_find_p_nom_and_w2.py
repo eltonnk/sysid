@@ -69,14 +69,14 @@ def find_nom_plant_with_clust(plant_list: List[control.TransferFunction], bandwi
     den = np.poly(np.ravel(poles_cluster_centers))
     return control.tf(num, den)
 
-    
-
-
 if __name__ == '__main__':
-
+    
+    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+    VERSION = 'v2'
     investigate_ORHP = False
+
     # Load trained plants
-    plant_list = util.load_plant_list_from_file('good_plants/v2/plants_trained_v2.json')
+    plant_list = util.load_plant_list_from_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/plants_trained_{VERSION}.json')
     plant_list = [p.delta_y_over_delta_u_c for p in plant_list]
     print(f'Number of identified plants: {len(plant_list)}')
 
@@ -248,11 +248,11 @@ if __name__ == '__main__':
 
     plt.show()
 
-    p_nom_plant = util.Plant(P_nom,0,0,'nominal_plant_v2')
-    p_nom_plant.save_plant_to_file('good_plants/v2/P_nom.json')
+    p_nom_plant = util.Plant(P_nom,0,0,f'nominal_plant_{VERSION}')
+    p_nom_plant.to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/P_nom_{VERSION}.json')
 
-    w2_plant = util.Plant(W2_optim,0,0,'optimal_boundary_W2_v2')
-    w2_plant.save_plant_to_file('good_plants/v2/W2.json')
+    w2_plant = util.Plant(W2_optim,0,0,f'optimal_boundary_W2_{VERSION}')
+    w2_plant.to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/W2_{VERSION}.json')
 
     
 
