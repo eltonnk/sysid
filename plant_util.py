@@ -1,4 +1,5 @@
-from typing import List
+from __future__ import annotations
+from typing import Callable, List
 import control
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,15 +14,12 @@ from multiprocessing import Pool
 import os
 from copy import copy
 
+
 NORMALIZING= 'normalizing'
 STANDARDIZING = 'standardizing'
 STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
 
 # Data manip
-@dataclass
-class TrainTestSplit:
-    train   : np.ndarray
-    test    : np.ndarray
 
 @dataclass
 class SensorData:
@@ -48,58 +46,6 @@ class SensorData:
         # This ell variable will allow you to save a plot with the number ell in the plot name
         ell = 1
         fig.savefig('test_plot_%s.pdf' % ell)
-
-def load_sensor_data(file_number: int) -> SensorData:
-    file_path = pathlib.Path(STANDARD_DATA_FILE_NAME.format(file_number))
-    
-    raw = np.loadtxt(
-        file_path,
-        dtype=float,
-        delimiter=',',
-        skiprows=1,
-        usecols=(0, 1, 2, 3),
-    )
-
-    N = raw.shape[0]
-    t = raw[:, 0]
-    T = t[1] - t[0]
-    return SensorData(N, T, t, raw[:,1], raw[:, 2], raw[:, 3])
-
-def load_train_test_data(train_file_number: int) -> tuple[SensorData, List[SensorData]]:
-    train_sd = load_sensor_data(train_file_number)
-
-    path = pathlib.Path('DATA/')
-    all_files = sorted(path.glob("*.csv"))
-    list_test_sd = []
-    for i in range(1, len(all_files)+1):
-        if i != train_file_number:
-            list_test_sd.append(load_sensor_data(i))
-
-    return train_sd, list_test_sd
-
-
-def split_1_file(file_path: pathlib.Path, train_test_split_index: int) -> tuple[SensorData, SensorData]:
-    s_i = train_test_split_index
-
-    raw = np.loadtxt(
-        file_path,
-        dtype=float,
-        delimiter=',',
-        skiprows=1,
-        usecols=(0, 1, 2, 3),
-    )
-
-    N = raw.shape[0]
-
-    train = raw[0:s_i, :]
-    test = raw[s_i:, :]
-
-    t_train = train[:, 0]
-    t_test = test[:, 0]
-   
-    T = t_train[1] - t_train[0]
-
-    return SensorData(s_i, T, t_train, train[:, 1], train[:, 2], train[:, 3]), SensorData(N-s_i, T, t_test, test[:, 1], test[:, 2], test[:, 3])
 
 # Plant id-ing
 
@@ -128,23 +74,34 @@ def build_regularization_array(expBegin: int, expEnd: int, mantEnd: float, maxNb
 
 @dataclass
 class PlantDesignParams(PlantPreGeneratedDesignParams):
-    regularization : float = field(default=0)
+    regularization:             float = field(default=0)
 
-def complete_design_params(pregen: PlantPreGeneratedDesignParams, regularization: float = 0) -> PlantDesignParams:
-    return PlantDesignParams(pregen.num_order, pregen.denum_order, pregen.better_cond_method, regularization)
+    @classmethod
+    def complete_design_params(
+        cls, 
+        pregen: PlantPreGeneratedDesignParams, 
+        regularization: float = 0
+    ) -> PlantDesignParams:
+        return cls(
+            pregen.num_order, 
+            pregen.denum_order,
+            pregen.better_cond_method,
+            regularization
+        )
 
 @dataclass_json
 @dataclass
 class PlantDesignPlan:
     plan: list[PlantPreGeneratedDesignParams] = field(default_factory=list)
 
-def design_plan_from_file(file_name: str) -> PlantDesignPlan:
-    with open(file_name, 'r') as plant_json_file:
-        plant_json_string = plant_json_file.read()
+    @classmethod
+    def from_file(cls, file_name: str) -> PlantDesignPlan:
+        with open(file_name, 'r') as plant_json_file:
+            plant_json_string = plant_json_file.read()
 
-        plant_design_plan = PlantDesignPlan.from_json(plant_json_string)
+            plant_design_plan = cls.from_json(plant_json_string)
 
-    return plant_design_plan
+        return plant_design_plan
 
 def tf_encoder(t: control.TransferFunction) -> str:
     return (
@@ -174,18 +131,19 @@ class Plant:
     mean_u : float = field(default=0)
     mean_y : float = field(default=0)
     name : str = field(default="")
-    discrt_coefs    : List[int]                 = field(default_factory=list)
+    discrt_coefs : List[int] = field(default_factory=list)
 
-    def save_plant_to_file(self, file_name: str):
+    @classmethod
+    def from_file(cls, file_name: str) -> Plant:
+        with open(file_name, 'r') as pl_file:
+            pl_json = json.load(pl_file)
+
+        return cls.from_dict(pl_json)
+
+    def to_file(self, file_name: str):
         self_dict = self.to_dict()
         with open(file_name, 'w') as plant_file:
             plant_file.write(json.dumps(self_dict, indent=4))
-
-def load_plant_from_file(file_name: str) -> Plant:
-    with open(file_name, 'r') as pl_file:
-        pl_json = json.load(pl_file)
-
-    return Plant.from_dict(pl_json)
 
 @dataclass
 class PlantTimeseriesStats:
@@ -324,9 +282,9 @@ class PlantGraphDataCommands:
     save_data   : bool = field(default=False)
     index2graph : int  = field(default=0    )
 
-    def pick_index2graph(self, training_dataset_index):
+    def pick_index2graph(self, training_dataset_index: int, qty_datasets: int):
 
-        if training_dataset_index == 5:
+        if training_dataset_index == qty_datasets:
             self.index2graph = 0
         else:
             self.index2graph = training_dataset_index-1
@@ -559,14 +517,14 @@ class PlantTestingPerformance(PlantPerformance):
 @dataclass_json
 @dataclass
 class PlantDesignOutcome:
-    name            : str                       = field(default=""          )
-    params          : PlantDesignParams         = field(default=None        )
+    name            : str                       = field(default=""  )
+    params          : PlantDesignParams         = field(default=None)
 
-    plant           : Plant                     = field(default=None        )
+    plant           : Plant                     = field(default=None)
    
 
-    train_perform   : PlantPerformance          = field(default=None        ) 
-    test_perform    : PlantTestingPerformance   = field(default=None        )
+    train_perform   : PlantPerformance          = field(default=None) 
+    test_perform    : PlantTestingPerformance   = field(default=None)
 
     def id_plant(self, s_data: SensorData, params: PlantDesignParams):
         """
@@ -679,49 +637,161 @@ class PlantDesignResult:
         with open(file_name, 'w') as design_plants_file:
             design_plants_file.write(json.dumps(list_dict_plant, indent=4))
 
+@dataclass
+class PlantProcessMaterial:
+    name:                       str
+    design_params:              PlantDesignParams
+    graph_data_cmds:            PlantGraphDataCommands
+    train_data_file_path:       pathlib.Path
+    train_test_data_file_paths: List[pathlib.Path]
+
+    def load_sensor_data(self, file_path) -> SensorData:
+        raw = np.loadtxt(
+            file_path,
+            dtype=float,
+            delimiter=',',
+            skiprows=1,
+            usecols=(0, 1, 2, 3),
+        )
+
+        N = raw.shape[0]
+        t = raw[:, 0]
+        T = t[1] - t[0]
+        return SensorData(N, T, t, raw[:,1], raw[:, 2], raw[:, 3])
+
+    def load_train_test_data(self) -> tuple[SensorData, List[SensorData]]:
+        train_sd = self.load_sensor_data(self.train_data_file_path)
+
+        path = pathlib.Path('DATA/')
+        all_files = sorted(path.glob("*.csv"))
+        list_test_sd = []
+        for file_path in self.train_test_data_file_paths:
+            if file_path != self.train_data_file_path:
+                list_test_sd.append(self.load_sensor_data(file_path))
+
+        return train_sd, list_test_sd
+
 class PlantProcessMaterialGenerator:
-    graph_data_cmds: PlantGraphDataCommands = None
+    train_test_data_folder:     pathlib.Path = None
+    graph_data_cmds:            PlantGraphDataCommands = None
+    train_test_data_file_paths: List[pathlib.Path]
 
-    def __init__(self, graph_data_cmds: PlantGraphDataCommands) -> None:
+    def __init__(
+        self, 
+        train_test_data_folder: pathlib.Path, 
+        graph_data_cmds: PlantGraphDataCommands
+    ):
+        self.train_test_data_folder = train_test_data_folder
         self.graph_data_cmds = graph_data_cmds
+        # Process Material name constant sub strings
+        self.pm_n_ss = (r'plant_n', r'_d', r'_', r'_ds', r'_reg')
 
-    def give_process_material_list(self) -> List[tuple[PlantPreGeneratedDesignParams, int, float, PlantGraphDataCommands]]:
-        raise NotImplementedError("This method should be implemeted by all derived classes, needs to provide a list of process_materials for Pool to generate processes.")
+        pattern = r'plant_n(?P<num>[0-9])_d(?P<den>[0-9])_(?P<bcm>st|no)_ds(?P<dfn>[0-9])_reg(?P<reg>[0-9]+\.[0-9]+)'
+        self.p_re = re.compile(pattern)
+
+        self._list_data_files()
+
+    def give_process_material_list(self) -> List[PlantProcessMaterial]:
+        raise NotImplementedError('This method should be implemeted by all derived classes, needs to provide a list of process_materials for Pool to generate processes.')
+
+    def _list_data_files(self): 
+        self.train_test_data_file_paths = sorted(self.train_test_data_folder.glob('*.csv'))
+    
+    @staticmethod
+    def _find_p_m_name(params: PlantDesignParams, data_file_number: int) -> str:
+        return f'plant_n{params.num_order}_d{params.denum_order}_{params.better_cond_method[0:2]}_ds{data_file_number}_reg{params.regularization}'
+
+    def _p_m_from_name(self, name:str) -> PlantProcessMaterial:
+        m = self.p_re.search(name)
+        if m.group('bcm') == 'no':
+            bcm = NORMALIZING
+        elif m.group('bcm') == 'st':
+            bcm = STANDARDIZING
+        else:
+            raise ValueError('Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
+        
+        pregen_params = PlantPreGeneratedDesignParams(int(m.group('num')),int(m.group('den')),bcm)
+
+        training_file_number = int(m.group('dfn'))
+
+        # If we do this, we hope the user keeps the training files didn't change name
+        # TODO make this cleaner, maybe append some type of unique id to each data file?
+        train_data_file_path = self.train_test_data_file_paths[training_file_number]
+
+        regularization = float(m.group('reg'))
+        
+        self.graph_data_cmds.pick_index2graph(training_file_number,len(self.train_test_data_file_paths))
+        graph_data_cmds_i = copy(self.graph_data_cmds)
+        
+        design_params = PlantDesignParams.complete_design_params(
+            pregen_params, 
+            regularization
+        )
+
+        return PlantProcessMaterial(
+            name, 
+            design_params, 
+            graph_data_cmds_i,
+            train_data_file_path, 
+            self.train_test_data_file_paths
+        )
 
 class PlantPMGTryAll(PlantProcessMaterialGenerator):
-    file_name: str = None
+    design_params_file_name: str = None
     reg_arr: np.ndarray = None
-    def __init__(self, graph_data_cmds: PlantGraphDataCommands, design_params_file_name:str, regularization_array: np.ndarray):
-        super().__init__(graph_data_cmds)
-        self.file_name = design_params_file_name
+    def __init__(
+        self, 
+        train_test_data_folder: pathlib.Path,
+        graph_data_cmds: PlantGraphDataCommands, 
+        design_params_file_name : str, 
+        regularization_array : np.ndarray
+    ):
+        super().__init__(train_test_data_folder, graph_data_cmds)
+        self.design_params_file_name = design_params_file_name
         self.reg_arr = regularization_array
 
-    def give_process_material_list(self) -> List[tuple[PlantPreGeneratedDesignParams, int, float, PlantGraphDataCommands]]:
+    def give_process_material_list(self) -> List[PlantProcessMaterial]:
         # Find what shape the plants we wan't to train will have
-        plant_design_plan = design_plan_from_file(self.file_name)
+        plant_design_plan = PlantDesignPlan.from_file(self.design_params_file_name)
 
-        # Create list of all possible plant shapes, data files for train/testing, regularization values combos
+        # Create list of all possible plant shapes, data files for train/testing,
+        # regularization values combos
+
         process_material_list = []
         for pregen_params in plant_design_plan.plan:
-            for i in range(1,6):
-                self.graph_data_cmds.pick_index2graph(i)
+            for i, train_data_file_path in enumerate(self.train_test_data_file_paths):
+                self.graph_data_cmds.pick_index2graph(i, len(self.train_test_data_file_paths))
                 graph_data_cmds_i = copy(self.graph_data_cmds)
                 for regularization in self.reg_arr:
                 #regularization = 0
-                    process_material = (pregen_params, i,regularization, graph_data_cmds_i)
+                    design_params = PlantDesignParams.complete_design_params(
+                        pregen_params, 
+                        regularization=regularization
+                    )
+                    name = self._find_p_m_name(design_params, i)
+                    process_material = PlantProcessMaterial(
+                        name, 
+                        design_params, 
+                        graph_data_cmds_i,
+                        train_data_file_path, 
+                        self.train_test_data_file_paths
+                    )
                     process_material_list.append(process_material)
 
         return process_material_list
 
 class PlantPMGTrySelection(PlantProcessMaterialGenerator):
     result_file_path: pathlib.Path = None
-    def __init__(self, graph_data_cmds: PlantGraphDataCommands, result_file_path: pathlib.Path):
-        super().__init__(graph_data_cmds)
+    def __init__(
+        self, 
+        train_test_data_folder: pathlib.Path,
+        graph_data_cmds: PlantGraphDataCommands, 
+        result_file_path: pathlib.Path
+    ):
+        super().__init__(train_test_data_folder, graph_data_cmds)
         self.result_file_path = result_file_path
 
-    def give_process_material_list(self) -> List[tuple[PlantPreGeneratedDesignParams, int, pathlib.Path, float, PlantGraphDataCommands]]:
-        pattern = r'plant_n(?P<num>[0-9])_d(?P<den>[0-9])_(?P<bcm>st|no)_ds(?P<dfn>[0-9])_reg(?P<reg>[0-9]+\.[0-9]+)'
-        p_re = re.compile(pattern)
+    def give_process_material_list(self) -> List[PlantProcessMaterial]:
         rnlist = []
         with open(self.result_file_path, 'r') as rnfile:
             rnlist = rnfile.readlines()
@@ -732,27 +802,17 @@ class PlantPMGTrySelection(PlantProcessMaterialGenerator):
             # skip to next line in file if empty line
             if rn == "":
                 continue
-            m = p_re.search(rn)
-            if m.group('bcm') == 'no':
-                bcm = NORMALIZING
-            elif m.group('bcm') == 'st':
-                bcm = STANDARDIZING
-            else:
-                raise ValueError('Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
-            
-                
-            pregen_params = PlantPreGeneratedDesignParams(int(m.group('num')),int(m.group('den')),bcm)
+            process_material = self._p_m_from_name(rn)
 
-            training_file_number = int(m.group('dfn'))
-            self.graph_data_cmds.pick_index2graph(training_file_number)
-            graph_data_cmds_i = copy(self.graph_data_cmds)
-            regularization = float(m.group('reg'))
-            
-            process_material_list.append((pregen_params, training_file_number, regularization, graph_data_cmds_i))
+            process_material_list.append(process_material)
 
         return process_material_list
 
-def test_all_possible_trained_plants(pmg:PlantProcessMaterialGenerator, parallel_train_test_process) ->PlantDesignResult:
+def test_all_possible_trained_plants(
+    pmg : PlantProcessMaterialGenerator, 
+    parallel_train_test_process : Callable[[PlantProcessMaterial], PlantDesignOutcome]
+) -> PlantDesignResult:
+
     process_material_list = pmg.give_process_material_list()
 
     # Train and test plants using combos mentionned above

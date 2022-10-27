@@ -6,26 +6,18 @@ This code loads the data.
 """
 
 # Libraries
-import numpy as np
-# from scipy import signal
 from matplotlib import pyplot as plt
 import pathlib
-import part_1_util as util
-
-
+import plant_util as util
 import time
 
-# TODO: put process material in a class 
-def parallel_train_test_process(process_material: tuple[util.PlantPreGeneratedDesignParams, int, pathlib.Path, float, util.PlantGraphDataCommands]) -> util.PlantDesignOutcome:
-    pregen_params, i, regularization, graph_data_cmds = process_material
-    params = util.complete_design_params(pregen_params, regularization)
-    s_data_train, s_data_test = util.load_train_test_data(i)
-    name = f'plant_n{params.num_order}_d{params.denum_order}_{params.better_cond_method[0:2]}_ds{i}_reg{regularization}'
-    design_outcome = util.PlantDesignOutcome(name)
-    design_outcome.regularization = regularization
-    design_outcome.id_plant(s_data_train, params)
+def parallel_train_test_process(process_material: util.PlantProcessMaterial) -> util.PlantDesignOutcome:
 
-    train_perform = design_outcome.train_perform
+    s_data_train, s_data_test = process_material.load_train_test_data()
+    design_outcome = util.PlantDesignOutcome(process_material.name)
+    design_outcome.id_plant(s_data_train, process_material.design_params)
+
+    # train_perform = design_outcome.train_perform
 
     # print(train_perform.satisfying_attributes)
     # print(train_perform.conditioning)
@@ -34,7 +26,7 @@ def parallel_train_test_process(process_material: tuple[util.PlantPreGeneratedDe
     # print(f'Good plant? :{train_perform.is_completly_satisfying}')
     #if train_perform.is_completly_satisfying:
     
-    graph_data = design_outcome.test_plant(s_data_test, graph_data_cmds)
+    graph_data = design_outcome.test_plant(s_data_test, process_material.graph_data_cmds)
 
     # test_perform = design_outcome.test_perform
     print(f'{design_outcome.name} completed.')
@@ -72,18 +64,25 @@ if __name__ == '__main__':
     start_t = time.perf_counter()
     
     try_all = False
+
+    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+
+    DATA_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'DATA/')
+
+    VERSION = 'v3'
+
     if try_all:
         # Here we train over a range of parameters, determined by 
         # build_regularization_array and the 'plants_to_train.json' file
         graph_data_cmds = util.PlantGraphDataCommands()
         # Build array of possible regularization values 
         regs = util.build_regularization_array(-1, 1, 1.1, 30)
-        pmg = util.PlantPMGTryAll(graph_data_cmds, 'training_plans/plants_to_train.json', regs)
+        pmg = util.PlantPMGTryAll(DATA_PATH, graph_data_cmds, MAIN_FILE_FOLDER + 'training_plans/plants_to_train.json', regs)
     else:
         # Here we train only using certain parameters we have found to be optimal before
         graph_data_cmds = util.PlantGraphDataCommands(save_graph=False)
-        result_names_file_path = pathlib.Path('good_plants/v3/good_plants_v3.txt')
-        pmg = util.PlantPMGTrySelection(graph_data_cmds, result_names_file_path)
+        result_names_file_path = pathlib.Path(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/good_plants_{VERSION}.txt')
+        pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, result_names_file_path)
 
     design_results = util.test_all_possible_trained_plants(pmg, parallel_train_test_process)
 
@@ -93,8 +92,12 @@ if __name__ == '__main__':
 
     
     # Put all trained plants in a file, with test results
-    design_results.save_results_to_file('good_plants/v3/results_plants_trained_v3.json')
-    design_results.save_plant_list_to_file('good_plants/v3/plants_trained_v3.json')
+    if try_all:
+        design_results.save_results_to_file(MAIN_FILE_FOLDER + f'try_all_results/results_plants_trained.json')
+        design_results.save_plant_list_to_file(MAIN_FILE_FOLDER + f'try_all_results/plants_trained.json')
+    else:
+        design_results.save_results_to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/results_plants_trained_{VERSION}.json')
+        design_results.save_plant_list_to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/plants_trained_{VERSION}.json')
     # %%
     # Show plots
     # plt.show()

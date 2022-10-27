@@ -1,6 +1,6 @@
 import part1_2_find_p_nom_and_w2 as fpnom
 import numpy as np
-import part_1_util as util
+import plant_util as util
 
 from collections import Counter
 
