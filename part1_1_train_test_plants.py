@@ -94,7 +94,6 @@ if __name__ == '__main__':
     total_duration = end_t - start_t
     print(f'Total Processing took {total_duration:.2f}s total')
 
-    
     # Put all trained plants in a file, with test results
     if try_all:
         # Save a file with trained plants and corresponding statistics
