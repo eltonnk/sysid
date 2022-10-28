@@ -14,12 +14,26 @@ from multiprocessing import Pool
 import os
 from copy import copy
 
+from tkinter.filedialog import askdirectory
+
+
 
 NORMALIZING= 'normalizing'
 STANDARDIZING = 'standardizing'
 STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
 
 # Data manip
+
+
+
+def find_io_files_folder() -> str:
+    MAIN_FILE_FOLDER = askdirectory(title='Select Input/Output Files Folder')
+    if MAIN_FILE_FOLDER == '':
+        raise ValueError('Must select an Input/Output Files Folder')
+    else:
+        MAIN_FILE_FOLDER = MAIN_FILE_FOLDER + '/'
+
+    return MAIN_FILE_FOLDER
 
 @dataclass
 class SensorData:
@@ -662,8 +676,6 @@ class PlantProcessMaterial:
     def load_train_test_data(self) -> tuple[SensorData, List[SensorData]]:
         train_sd = self.load_sensor_data(self.train_data_file_path)
 
-        path = pathlib.Path('DATA/')
-        all_files = sorted(path.glob("*.csv"))
         list_test_sd = []
         for file_path in self.train_test_data_file_paths:
             if file_path != self.train_data_file_path:
@@ -748,7 +760,11 @@ class PlantPMGTryAll(PlantProcessMaterialGenerator):
     ):
         super().__init__(train_test_data_folder, graph_data_cmds)
         self.design_params_file_name = design_params_file_name
-        self.reg_arr = regularization_array
+
+        # Will break down the line if not in float, as int32 is not serializable 
+        # by dataclass_json (bite me why)
+        self.reg_arr = regularization_array.astype('float64')
+
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:
         # Find what shape the plants we wan't to train will have

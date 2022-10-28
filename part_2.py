@@ -59,7 +59,9 @@ def robust_nyq(P_nom, W2, wmin, wmax, N_w):
 
 
 if __name__ == '__main__':
-    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+
+    MAIN_FILE_FOLDER = util.find_io_files_folder()
+
     VERSION = 'v2'
 
     REFERENCE_FILE_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'DATA/reference/ref.csv')

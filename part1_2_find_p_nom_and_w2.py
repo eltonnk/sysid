@@ -71,7 +71,8 @@ def find_nom_plant_with_clust(plant_list: List[control.TransferFunction], bandwi
 
 if __name__ == '__main__':
     
-    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+    MAIN_FILE_FOLDER = util.find_io_files_folder()
+
     VERSION = 'v2'
     investigate_ORHP = False
 

@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 import pathlib
 import plant_util as util
 import time
+import numpy as np
 
 def parallel_train_test_process(process_material: util.PlantProcessMaterial) -> util.PlantDesignOutcome:
 
@@ -59,17 +60,17 @@ if __name__ == '__main__':
 
 
     # %%
-    # Time to trian plants
+    # Time to train (and test) plants
 
     start_t = time.perf_counter()
     
     try_all = False
-
-    MAIN_FILE_FOLDER = '../sysid_mech412_project_input_output_files/'
+    
+    MAIN_FILE_FOLDER = util.find_io_files_folder()
 
     DATA_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'DATA/')
 
-    VERSION = 'v3'
+    VERSION = 'v1'
 
     if try_all:
         # Here we train over a range of parameters, determined by 
@@ -77,11 +78,14 @@ if __name__ == '__main__':
         graph_data_cmds = util.PlantGraphDataCommands()
         # Build array of possible regularization values 
         regs = util.build_regularization_array(-1, 1, 1.1, 30)
+        # Let's build a list of different training/testing scenarios to be executed on different processes
         pmg = util.PlantPMGTryAll(DATA_PATH, graph_data_cmds, MAIN_FILE_FOLDER + 'training_plans/plants_to_train.json', regs)
     else:
         # Here we train only using certain parameters we have found to be optimal before
-        graph_data_cmds = util.PlantGraphDataCommands(save_graph=False)
+        # Change save_graph to True to better visualize if optimal trained plants can recreate output signals from input
+        graph_data_cmds = util.PlantGraphDataCommands(save_graph=True)
         result_names_file_path = pathlib.Path(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/good_plants_{VERSION}.txt')
+        # Let's recreate a list of good training/testing scenarios to be executed (again) on different processes
         pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, result_names_file_path)
 
     design_results = util.test_all_possible_trained_plants(pmg, parallel_train_test_process)
@@ -90,10 +94,11 @@ if __name__ == '__main__':
     total_duration = end_t - start_t
     print(f'Total Processing took {total_duration:.2f}s total')
 
-    
     # Put all trained plants in a file, with test results
     if try_all:
+        # Save a file with trained plants and corresponding statistics
         design_results.save_results_to_file(MAIN_FILE_FOLDER + f'try_all_results/results_plants_trained.json')
+        # Only save the trained plant coefficients: this is the only thing we need going forward
         design_results.save_plant_list_to_file(MAIN_FILE_FOLDER + f'try_all_results/plants_trained.json')
     else:
         design_results.save_results_to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/results_plants_trained_{VERSION}.json')
