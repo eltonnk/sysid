@@ -51,3 +51,9 @@ Now enter the following command in your terminal, with your virtual environnemen
 ```
 pip install -r requirements.txt
 ```
+
+# Warning
+
+Do not train on more than 4-6 files, and each file should be no more than 500-600 kb, or else your computer will crash.
+Respecting the max number of files is more important than respecting the file size, but both are important as else this
+program will fill up your ram
