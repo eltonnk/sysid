@@ -62,7 +62,8 @@ pip install -r requirements.txt
 
 # How to store data and organise files
 
-When using part1 or part2 files, need to select in which folder are or will be inserted input/output files. This folder needs to contain
+When using part1 or part2 files, need to select in which folder are or will be 
+inserted input/output files. This folder needs to contain
 
 - main_folder (folder where all input/output files are to be found, can have any name)
     - DATA (where all data will be found)
@@ -101,11 +102,14 @@ When using part1 or part2 files, need to select in which folder are or will be i
 ### plan.json
     - sensor_data_column_names
     
-    Used to determine which columns in csv data files used for training and testing correspond to time ("t"), command ("r"), input ("u") and output ("y") data of plant we want to characterize
+    Used to determine which columns in csv data files used for training and testing 
+    correspond to time ("t"), command ("r"), input ("u") and output ("y") data of 
+    plant we want to characterize
 
     - plants_to_train
 
-    tells numerator and denominator order of plants to train, also wheter to use normalization or standardization while training
+    tells numerator and denominator order of plants to train, also wheter to use 
+    normalization or standardization while training
 
 
     format:
