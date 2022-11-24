@@ -665,19 +665,20 @@ class PlantProcessMaterial:
     train_data_file_path:       pathlib.Path
     train_test_data_file_paths: List[pathlib.Path]
 
-    def load_sensor_data(self, file_path) -> SensorData:
-        raw = np.loadtxt(
-            file_path,
-            dtype=float,
-            delimiter=',',
-            skiprows=1,
-            usecols=(0, 1, 2, 3),
-        )
+    def load_sensor_data(self, file_path: pathlib.Path) -> SensorData:
+        df_raw = pd.read_csv(file_path)
 
-        N = raw.shape[0]
-        t = raw[:, 0]
-        T = t[1] - t[0]
-        return SensorData(N, T, t, raw[:,1], raw[:, 2], raw[:, 3])
+        t = np.array(df_raw[self.design_params.sensor_data_column_names['t']])
+        N = t.shape[0]
+        T = np.mean(t) # might not have very stable timestep, better to average
+        return SensorData(
+            N, 
+            T, 
+            t, 
+            np.array(df_raw[self.design_params.sensor_data_column_names['r']]), 
+            np.array(df_raw[self.design_params.sensor_data_column_names['u']]), 
+            np.array(df_raw[self.design_params.sensor_data_column_names['y']])
+        )
 
     def load_train_test_data(self) -> tuple[SensorData, List[SensorData]]:
         train_sd = self.load_sensor_data(self.train_data_file_path)

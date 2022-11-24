@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     TRAINING_PLAN_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'training_plans/plan.json')
 
-    VERSION = 'v3'
+    VERSION = 'v1'
 
     if try_all:
         # Here we train over a range of parameters, determined by 
