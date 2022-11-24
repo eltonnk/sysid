@@ -13,6 +13,7 @@ import re
 from multiprocessing import Pool
 import os
 from copy import copy
+import pandas as pd
 
 from tkinter.filedialog import askdirectory
 
@@ -88,29 +89,34 @@ def build_regularization_array(expBegin: int, expEnd: int, mantEnd: float, maxNb
 
 @dataclass
 class PlantDesignParams(PlantPreGeneratedDesignParams):
-    regularization:             float = field(default=0)
+    regularization:             float           = field(default=0)
+    sensor_data_column_names:   dict[str, str]  = field(default_factory=dict)
 
     @classmethod
     def complete_design_params(
         cls, 
         pregen: PlantPreGeneratedDesignParams, 
-        regularization: float = 0
+        regularization: float = 0, 
+        sensor_data_column_names: dict[str, str] = {}
+
     ) -> PlantDesignParams:
         return cls(
             pregen.num_order, 
             pregen.denum_order,
             pregen.better_cond_method,
-            regularization
+            regularization,
+            sensor_data_column_names
         )
 
 @dataclass_json
 @dataclass
 class PlantDesignPlan:
-    plan: list[PlantPreGeneratedDesignParams] = field(default_factory=list)
+    sensor_data_column_names:   dict[str, str]                      = field(default_factory=dict)
+    plants_to_train:            list[PlantPreGeneratedDesignParams] = field(default_factory=list)
 
     @classmethod
-    def from_file(cls, file_name: str) -> PlantDesignPlan:
-        with open(file_name, 'r') as plant_json_file:
+    def from_file(cls, file_path: pathlib.Path) -> PlantDesignPlan:
+        with open(file_path, 'r') as plant_json_file:
             plant_json_string = plant_json_file.read()
 
             plant_design_plan = cls.from_json(plant_json_string)
@@ -135,7 +141,7 @@ def tf_decoder(s_t: str) -> control.TransferFunction:
     num = eval(s_num)
     den = eval(s_den)
     if not isinstance(num, list) or not isinstance(den, list) :
-        raise TypeError('Decoded string was not  list, might not be transfer function numerator or denominator')
+        raise TypeError('Decoded string was not list, might not be transfer function numerator or denominator')
     return control.tf(num, den)
 
 @dataclass_json
@@ -684,17 +690,21 @@ class PlantProcessMaterial:
         return train_sd, list_test_sd
 
 class PlantProcessMaterialGenerator:
-    train_test_data_folder:     pathlib.Path = None
-    graph_data_cmds:            PlantGraphDataCommands = None
-    train_test_data_file_paths: List[pathlib.Path]
+    train_test_data_folder:         pathlib.Path            = None
+    graph_data_cmds:                PlantGraphDataCommands  = None
+    plant_design_plan_file_name:    pathlib.Path            = None
+    train_test_data_file_paths:     List[pathlib.Path]      = []
+    plant_design_plan:              PlantDesignPlan         = None
 
     def __init__(
         self, 
         train_test_data_folder: pathlib.Path, 
-        graph_data_cmds: PlantGraphDataCommands
+        graph_data_cmds: PlantGraphDataCommands,
+        plant_design_plan_file_name: pathlib.Path
     ):
         self.train_test_data_folder = train_test_data_folder
         self.graph_data_cmds = graph_data_cmds
+        self.plant_design_plan_file_name = plant_design_plan_file_name
         # Process Material name constant sub strings
         self.pm_n_ss = (r'plant_n', r'_d', r'_', r'_ds', r'_reg')
 
@@ -702,6 +712,8 @@ class PlantProcessMaterialGenerator:
         self.p_re = re.compile(pattern)
 
         self._list_data_files()
+
+        self.plant_design_plan = PlantDesignPlan.from_file(self.plant_design_plan_file_name)
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:
         raise NotImplementedError('This method should be implemeted by all derived classes, needs to provide a list of process_materials for Pool to generate processes.')
@@ -737,7 +749,8 @@ class PlantProcessMaterialGenerator:
         
         design_params = PlantDesignParams.complete_design_params(
             pregen_params, 
-            regularization
+            regularization=regularization,
+            sensor_data_column_names=self.plant_design_plan.sensor_data_column_names
         )
 
         return PlantProcessMaterial(
@@ -749,17 +762,21 @@ class PlantProcessMaterialGenerator:
         )
 
 class PlantPMGTryAll(PlantProcessMaterialGenerator):
-    design_params_file_name: str = None
+    
     reg_arr: np.ndarray = None
     def __init__(
         self, 
         train_test_data_folder: pathlib.Path,
         graph_data_cmds: PlantGraphDataCommands, 
-        design_params_file_name : str, 
+        plant_design_plan_file_name : pathlib.Path, 
         regularization_array : np.ndarray
     ):
-        super().__init__(train_test_data_folder, graph_data_cmds)
-        self.design_params_file_name = design_params_file_name
+        super().__init__(
+            train_test_data_folder, 
+            graph_data_cmds,
+            plant_design_plan_file_name
+        )
+       
 
         # Will break down the line if not in float, as int32 is not serializable 
         # by dataclass_json (bite me why)
@@ -768,13 +785,13 @@ class PlantPMGTryAll(PlantProcessMaterialGenerator):
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:
         # Find what shape the plants we wan't to train will have
-        plant_design_plan = PlantDesignPlan.from_file(self.design_params_file_name)
+        
 
         # Create list of all possible plant shapes, data files for train/testing,
         # regularization values combos
 
         process_material_list = []
-        for pregen_params in plant_design_plan.plan:
+        for pregen_params in self.plant_design_plan.plants_to_train:
             for i, train_data_file_path in enumerate(self.train_test_data_file_paths):
                 self.graph_data_cmds.pick_index2graph(i, len(self.train_test_data_file_paths))
                 graph_data_cmds_i = copy(self.graph_data_cmds)
@@ -782,7 +799,8 @@ class PlantPMGTryAll(PlantProcessMaterialGenerator):
                 #regularization = 0
                     design_params = PlantDesignParams.complete_design_params(
                         pregen_params, 
-                        regularization=regularization
+                        regularization=regularization,
+                        sensor_data_column_names=self.plant_design_plan.sensor_data_column_names
                     )
                     name = self._find_p_m_name(design_params, i)
                     process_material = PlantProcessMaterial(
@@ -801,10 +819,15 @@ class PlantPMGTrySelection(PlantProcessMaterialGenerator):
     def __init__(
         self, 
         train_test_data_folder: pathlib.Path,
-        graph_data_cmds: PlantGraphDataCommands, 
+        graph_data_cmds: PlantGraphDataCommands,
+        plant_design_plan_file_name : pathlib.Path, 
         result_file_path: pathlib.Path
     ):
-        super().__init__(train_test_data_folder, graph_data_cmds)
+        super().__init__(
+            train_test_data_folder, 
+            graph_data_cmds,
+            plant_design_plan_file_name
+        )
         self.result_file_path = result_file_path
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:

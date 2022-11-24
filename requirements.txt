@@ -4,3 +4,4 @@ control
 custom_wheels/slycot-0.4.0-cp310-cp310-win_amd64.whl
 scikit-learn
 dataclasses-json
+custom_wheels/pandas-1.4.3-cp310-cp310-win_amd64.whl
