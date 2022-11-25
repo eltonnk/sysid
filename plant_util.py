@@ -40,6 +40,7 @@ def find_io_files_folder() -> str:
 class SensorData:
     N: int
     T: float
+    T_var: float
     t: np.ndarray
     r: np.ndarray
     u: np.ndarray
@@ -403,8 +404,11 @@ class PlantPerformance:
 
     def compute_performance(self, p: PlantOrganizedSensorData):
         # Compute the uncertainty and relative uncertainty.
-
-        bmAx_2norm_squared = np.linalg.norm(p.b - p.A @ p.x) ** 2 + (p.reg * np.linalg.norm(p.x)) ** 2
+        # We flatten arrays here so numpy doesn't allocate array of shape (p.b.shape[0], p.b.shape[0])
+        Ax_flat = np.reshape(p.A @ p.x, newshape=(p.A.shape[0],))
+        b_flat = np.reshape(p.b, newshape=(p.b.shape[0],))
+        bmAx = b_flat - Ax_flat
+        bmAx_2norm_squared = np.linalg.norm(bmAx) ** 2 + (p.reg * np.linalg.norm(p.x)) ** 2
         self.sigma =  (1 / (p.N - (p.n + p.m + 1))) * bmAx_2norm_squared * np.linalg.inv((p.ATA))
         self.relative_uncertainty = np.divide(np.sqrt(np.diag(self.sigma).reshape(-1,1)), np.abs(p.x)) * 100
 
@@ -671,10 +675,13 @@ class PlantProcessMaterial:
         t = np.array(df_raw[self.design_params.sensor_data_column_names['t']])
         t = t - t[0]
         N = t.shape[0]
-        T = np.mean(t[1:]-t[:-1]) # might not have very stable timestep, better to average
+        delta_t = t[1:]-t[:-1]
+        T = np.mean(delta_t) # might not have very stable timestep, better to average
+        T_var = np.var(delta_t)
         return SensorData(
             N, 
-            T, 
+            T,
+            T_var, 
             t, 
             np.array(df_raw[self.design_params.sensor_data_column_names['r']]), 
             np.array(df_raw[self.design_params.sensor_data_column_names['u']]), 
