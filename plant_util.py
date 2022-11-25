@@ -669,6 +669,7 @@ class PlantProcessMaterial:
         df_raw = pd.read_csv(file_path)
 
         t = np.array(df_raw[self.design_params.sensor_data_column_names['t']])
+        t = t - t[0]
         N = t.shape[0]
         T = np.mean(t[1:]-t[:-1]) # might not have very stable timestep, better to average
         return SensorData(

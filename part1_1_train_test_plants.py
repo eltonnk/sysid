@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     start_t = time.perf_counter()
     
-    try_all = True
+    try_all = False
     
     MAIN_FILE_FOLDER = util.find_io_files_folder()
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     TRAINING_PLAN_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'training_plans/plan.json')
 
-    VERSION = 'v1'
+    VERSION = 'v3'
 
     if try_all:
         # Here we train over a range of parameters, determined by 
