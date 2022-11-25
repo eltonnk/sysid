@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     start_t = time.perf_counter()
     
-    try_all = False
+    try_all = True
     
     MAIN_FILE_FOLDER = util.find_io_files_folder()
 
