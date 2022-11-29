@@ -17,8 +17,16 @@ def getAverageCoeffArray(
     plant_list: List[control.TransferFunction], 
     fromWhereFunc: Callable[[control.TransferFunction], List[float]]
 ) -> np.ndarray:
+    
+    # find num or denom order for all plants
+    list_size_arr = []
+    for p in plant_list:
+        list_size_arr.append(fromWhereFunc(p).size)
+
     list_av_coef = []
-    for index in range(plant_list[-1].num[0][0].size):
+    # we find average of all coefficients. We do this for x coefficients, where x
+    # is the highest num or denom for all plants + 1
+    for index in range(max(list_size_arr)):
         try: 
             list_av_coef.append(np.mean([fromWhereFunc(p)[index] for p in plant_list]))
         except:
@@ -72,54 +80,60 @@ def find_nom_plant_with_clust(plant_list: List[control.TransferFunction], bandwi
 if __name__ == '__main__':
     
     MAIN_FILE_FOLDER = util.find_io_files_folder()
-
-    VERSION = 'v2'
-    investigate_ORHP = False
+    METHOD = 2
+    VERSION = 'v1'
+    investigate_ORHP = True
 
     # Load trained plants
     plant_list = util.load_plant_list_from_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/plants_trained_{VERSION}.json')
     plant_list = [p.delta_y_over_delta_u_c for p in plant_list]
     print(f'Number of identified plants: {len(plant_list)}')
 
-    # # Method 1
-    # # Add all plants and divide by number of plants, then simplify order to 4th order
-    # P_nom = plant_list[0]
-    # for p in plant_list[1:]:
-    #     P_nom = P_nom + p
-    # P_nom = P_nom / len(plant_list)
-    # print(f'Poles of unreduced tf: {P_nom.poles()}')
-    # # Reduce plant order to make it around same order as other plants
-    # P_nom = control.tf2ss(P_nom)
-    # P_nom = control.balred(P_nom,orders=4)
-    # P_nom = control.ss2tf(P_nom)
-
-    # Method 2
-    # Find tf from average of coefficients
-    num_P_nom = getAverageCoeffArray(plant_list, getNumCoeffList)
-    den_P_nom = getAverageCoeffArray(plant_list, getDenCoeffList)
-    P_nom_av = control.tf(num_P_nom, den_P_nom)
-    if investigate_ORHP:
-        print(f'Zeros of av tf: {P_nom_av.zeros()}')
-        print(f'Poles of av tf: {P_nom_av.poles()}')
-        print(f'Zeros of tf 0: {plant_list[0].zeros()}')
-        print(f'Poles of tf 0: {plant_list[0].poles()}')
-
-    # Combine method 1 and 2
-    P_nom = P_nom_av
-    for i, p in enumerate(plant_list):
-        P_nom = P_nom + p
+    if METHOD == 1:
+        # Method 1
+        # Add all plants and divide by number of plants, then simplify order to 4th order
+        P_nom = plant_list[0]
+        for p in plant_list[1:]:
+            P_nom = P_nom + p
+        P_nom = P_nom / len(plant_list)
+        print(f'Poles of unreduced tf: {P_nom.poles()}')
+        # Reduce plant order to make it around same order as other plants
+        P_nom = control.tf2ss(P_nom)
+        P_nom = control.balred(P_nom,orders=4)
+        P_nom = control.ss2tf(P_nom)
+    elif METHOD == 2:
+        # Method 2
+        # Find tf from average of coefficients
+        num_P_nom = getAverageCoeffArray(plant_list, getNumCoeffList)
+        den_P_nom = getAverageCoeffArray(plant_list, getDenCoeffList)
+        P_nom_av = control.tf(num_P_nom, den_P_nom)
         if investigate_ORHP:
-            for ze in p.zeros():
-                if np.real(ze) > 0:
-                    print(f'Plant {i} has a zero with positive real part')
-            for po in p.zeros():
-                if np.real(po) > 0:
-                    print(f'Plant {i} has a pole with positive real part')
-    P_nom = P_nom / len(plant_list)
-    # Reduce plant order to make it around same order as other plants
-    P_nom = control.tf2ss(P_nom)
-    P_nom = control.balred(P_nom,orders=4)
-    P_nom = control.ss2tf(P_nom)
+            print(f'Zeros of av tf: {P_nom_av.zeros()}')
+            print(f'Poles of av tf: {P_nom_av.poles()}')
+            print(f'Zeros of tf 0: {plant_list[0].zeros()}')
+            print(f'Poles of tf 0: {plant_list[0].poles()}')
+            print(f'Av tf: {P_nom_av}')
+            print(f'tf 1: {plant_list[0]}')
+
+        P_nom = P_nom_av
+
+    elif METHOD == 3:
+        # Combine method 1 and 2
+        
+        for i, p in enumerate(plant_list):
+            P_nom = P_nom + p
+            if investigate_ORHP:
+                for ze in p.zeros():
+                    if np.real(ze) > 0:
+                        print(f'Plant {i} has a zero with positive real part')
+                for po in p.zeros():
+                    if np.real(po) > 0:
+                        print(f'Plant {i} has a pole with positive real part')
+        P_nom = P_nom / len(plant_list)
+        # Reduce plant order to make it around same order as other plants
+        P_nom = control.tf2ss(P_nom)
+        P_nom = control.balred(P_nom,orders=4)
+        P_nom = control.ss2tf(P_nom)
 
 
     # Method 4

@@ -14,6 +14,7 @@ from multiprocessing import Pool
 import os
 from copy import copy
 import pandas as pd
+from scipy.interpolate import interp1d
 
 from tkinter.filedialog import askdirectory
 
@@ -325,7 +326,7 @@ class PlantGraphData:
             self._show_data(cmds, name)
         
         if cmds.save_data:
-            self.save_data(name)
+            self._save_data(name)
 
     def _show_data(self, cmds: PlantGraphDataCommands, name: str):
         # Plot test data
@@ -477,6 +478,16 @@ class PlantTestingPerformance(PlantPerformance):
         raise TypeError("Cannot compute conditioning during testing or validation. If you wan to compute the conditioning of a matrix A computer using training data, please use the generic PlantPerformance constructor.")
 
     def compute_testing_performance(self, s_data_testing: SensorData, plant_from_training: Plant) -> PlantGraphData:
+        if s_data_testing.T_var:
+            t_end = s_data_testing.t[-1]
+            
+            intfu = interp1d(s_data_testing.t, s_data_testing.u)
+            intfy = interp1d(s_data_testing.t, s_data_testing.y)
+
+            s_data_testing.t = np.arange(0, t_end, s_data_testing.T)
+
+            s_data_testing.u = intfu(s_data_testing.t)
+            s_data_testing.y = intfy(s_data_testing.t)
 
         delta_u = s_data_testing.u
         if plant_from_training.mean_u:
