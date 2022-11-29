@@ -14,6 +14,9 @@ from multiprocessing import Pool
 import os
 from copy import copy
 import pandas as pd
+import contextlib
+from scipy.interpolate import interp1d
+from shutil import rmtree
 
 from tkinter.filedialog import askdirectory
 
@@ -27,24 +30,101 @@ STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
 
 
 
-def find_io_files_folder() -> str:
+def find_io_files_folder() -> pathlib.path:
     MAIN_FILE_FOLDER = askdirectory(title='Select Input/Output Files Folder')
     if MAIN_FILE_FOLDER == '':
         raise ValueError('Must select an Input/Output Files Folder')
     else:
         MAIN_FILE_FOLDER = MAIN_FILE_FOLDER + '/'
 
-    return MAIN_FILE_FOLDER
+    return pathlib.path(MAIN_FILE_FOLDER)
 
 @dataclass
-class SensorData:
+class DataDescriptor:
+    missing_data_strategy:      str             = field(default='')      
+    sensor_data_column_names:   dict[str, str]  = field(default_factory=dict)
+
+    @classmethod
+    def from_file(cls, file_path: pathlib.Path) -> DataDescriptor:
+        with open(file_path, 'r') as d_json_file:
+            d_json_string = d_json_file.read()
+
+            d = cls.from_json(d_json_string)
+
+        return d
+
+@contextlib.contextmanager
+def preprocess_data_files(data_files_folder: pathlib.Path, data_descriptor_folder: pathlib.path, ):
+    data_descriptor = DataDescriptor.from_file(data_descriptor_folder)
+
+    # find all unprocessed data files
+    data_file_paths = sorted(data_files_folder.glob('*.csv'))
+    # load them to memory?
+    unprocessed_data = [RawSensorData.load_sensor_data(f, data_descriptor, bring_to_zero=True) for f in data_file_paths]
+
+    temp_path_to_preprocessed_files  = data_files_folder / 'temp'
+    temp_path_to_preprocessed_files.mkdir(parents=True, exist_ok=True)
+
+
+    for d_f_p, u_d in zip(data_file_paths):
+        new_file_name = d_f_p.name.replace('.csv', '')
+        unprocessed_data = RawSensorData.load_sensor_data(d_f_p, data_descriptor, bring_to_zero=True)
+        unprocessed_data.pre_pro_and_save(data_descriptor, new_file_name, temp_path_to_preprocessed_files)
+
+    yield temp_path_to_preprocessed_files
+    
+    rmtree(temp_path_to_preprocessed_files, ignore_errors=True)
+
+
+@dataclass
+class RawSensorData:
     N: int
     T: float
-    T_var: float
     t: np.ndarray
-    r: np.ndarray
     u: np.ndarray
     y: np.ndarray
+    u_stat  : PlantTimeseriesStats  = field(default=None            , repr=False)
+    y_stat  : PlantTimeseriesStats  = field(default=None            , repr=False)
+
+    @classmethod
+    def load_sensor_data(
+        cls, 
+        file_path: pathlib.Path, 
+        data_descriptor: DataDescriptor = None, 
+        bring_to_zero: bool = False,
+    ) -> RawSensorData:
+        """Loads plant i/o data from a .csv file
+
+        Parameters
+        ----------
+        file_path : pathlib.Path
+            Path to the the .csv file
+        data_descriptor : DataDescriptor, optional
+            Describes which columns in the csv file correspond to input ('u'), output ('y'), etc, by default None
+        bring_to_zero : bool, optional
+            If True, will subtract from all timestamps so that the first one is zero, by default False
+
+        Returns
+        -------
+        SensorData
+            I/O data from a plant. May or way not have been interpolated
+        """
+        df_raw = pd.read_csv(file_path)
+        if data_descriptor:
+            t = np.array(df_raw[data_descriptor.sensor_data_column_names['t']])
+            u = np.array(df_raw[data_descriptor.sensor_data_column_names['u']])
+            y = np.array(df_raw[data_descriptor.sensor_data_column_names['y']])
+        else:
+            t = np.array(df_raw['t'])
+            u = np.array(df_raw['u'])
+            y = np.array(df_raw['y'])
+        if bring_to_zero:
+            t = t - t[0]
+        N = t.shape[0]
+        
+        delta_t = t[1:]-t[:-1]
+        T = np.mean(delta_t) # might not have very stable timestep, better to average
+        return cls(N,T,t,u,y)
 
     def plot(self):
         fig, ax = plt.subplots(3, 1)
@@ -62,6 +142,92 @@ class SensorData:
         # This ell variable will allow you to save a plot with the number ell in the plot name
         ell = 1
         fig.savefig('test_plot_%s.pdf' % ell)
+
+    @classmethod
+    def pre_pro_and_save(self, data_descriptor: DataDescriptor, new_file_name: str, temp_path: pathlib.Path):
+        
+        if data_descriptor.missing_data_strategy == "interpolate":
+            self._interp()
+        # TODO: else if data_descriptor.missing_data_strategy == "block"
+            
+        self.u_stat = PlantTimeseriesStats(self.u)
+        self.y_stat = PlantTimeseriesStats(self.y)
+
+        better_cond_method = NORMALIZING
+
+        uk_norm, yk_norm = self._normalize()
+        
+        better_cond_method =  STANDARDIZING
+
+        uk_std, yk_std = self._standardize()
+
+
+
+    
+    def _interp(self):
+        t_end = self.t[-1]
+        t_interp = np.arange(0, t_end, self.T)
+        N = t_interp.shape[0]
+
+        u_interp = interp1d(t_interp, self.u)
+        y_interp = interp1d(t_interp, self.y)
+    
+        self.N = N
+        self.T = self.T
+        self.t = t_interp
+        self.u = u_interp
+        self.y = y_interp
+
+    def _normalize(self):
+        uk = self.u[::-1] / self.u_stat.maximum
+        yk = self.y[::-1] / self.y_stat.maximum
+
+        return uk, yk
+
+    def _standardize(self):
+        uk = (self.u[::-1] - self.u_stat.mean)/self.u_stat.std_dev
+        yk = (self.y[::-1] - self.y_stat.mean)/self.y_stat.std_dev
+
+        return uk, yk
+
+    def _organize_for_least_squares(uk: np.ndarray, yk: np.ndarray, params: PlantDesignParams):
+
+        p = PlantOrganizedIDProblem()
+
+        p.N = s_data.N
+        p.T = s_data.T
+        u = s_data.u
+        y = s_data.y
+
+        # Form A and B matrices for system ID
+        nbr_alp = params.denum_order
+        nbr_bet = params.num_order + 1
+
+        # Find how many datapoints need to be removed from length of u and y vector to set number of rows to A matrix
+        lim = max(nbr_alp, nbr_bet)
+
+        self.b = yk[:-lim].reshape(-1, 1)
+        self.A = np.zeros((self.N - lim, nbr_alp+nbr_bet))
+        for i in range(nbr_alp):
+            end_ind = 1-lim+i
+            if end_ind == 0:
+                self.A[:, [i]] = -yk[(i+1):].reshape(-1, 1)
+            else:
+                self.A[:, [i]] = -yk[(i+1):end_ind].reshape(-1, 1)
+        for i in range(nbr_bet):
+            end_ind = 1-lim+i
+            if end_ind == 0:
+                self.A[:, [nbr_alp+i]] = uk[(i+1):].reshape(-1, 1)
+            else:
+                self.A[:, [nbr_alp+i]] = uk[(i+1):end_ind].reshape(-1, 1)
+
+        self.n = nbr_alp
+        self.m = nbr_bet-1
+
+        size_I = self.A.shape[1]
+        self.ATA = self.A.T @ self.A #+ self.reg*self.reg*np.eye(size_I)
+    
+
 
 # Plant id-ing
 
@@ -91,28 +257,24 @@ def build_regularization_array(expBegin: int, expEnd: int, mantEnd: float, maxNb
 @dataclass
 class PlantDesignParams(PlantPreGeneratedDesignParams):
     regularization:             float           = field(default=0)
-    sensor_data_column_names:   dict[str, str]  = field(default_factory=dict)
 
     @classmethod
     def complete_design_params(
         cls, 
         pregen: PlantPreGeneratedDesignParams, 
-        regularization: float = 0, 
-        sensor_data_column_names: dict[str, str] = {}
+        regularization: float = 0
 
     ) -> PlantDesignParams:
         return cls(
             pregen.num_order, 
             pregen.denum_order,
             pregen.better_cond_method,
-            regularization,
-            sensor_data_column_names
+            regularization
         )
 
 @dataclass_json
 @dataclass
 class PlantDesignPlan:
-    sensor_data_column_names:   dict[str, str]                      = field(default_factory=dict)
     plants_to_train:            list[PlantPreGeneratedDesignParams] = field(default_factory=list)
 
     @classmethod
@@ -154,6 +316,7 @@ class Plant:
     name : str = field(default="")
     discrt_coefs : List[int] = field(default_factory=list)
 
+    # TODO: update methods here so they use pathlib.Path
     @classmethod
     def from_file(cls, file_name: str) -> Plant:
         with open(file_name, 'r') as pl_file:
@@ -172,12 +335,11 @@ class PlantTimeseriesStats:
     mean      : float  = field(default=0, repr=False)
     std_dev   : float  = field(default=0, repr=False)
 
-    def __init__(self, timeseries: np.ndarray, for_normalizing: bool):
-        if for_normalizing:
-            self.maximum = np.max(np.abs(timeseries))
-        else:
-            self.mean = np.mean(timeseries)
-            self.std_dev = np.std(timeseries)
+    def __init__(self, timeseries: np.ndarray):
+
+        self.maximum = np.max(np.abs(timeseries))
+        self.mean = np.mean(timeseries)
+        self.std_dev = np.std(timeseries)
 
 @dataclass
 class PlantOrganizedSensorData:
@@ -669,51 +831,28 @@ class PlantProcessMaterial:
     train_data_file_path:       pathlib.Path
     train_test_data_file_paths: List[pathlib.Path]
 
-    def load_sensor_data(self, file_path: pathlib.Path) -> SensorData:
-        df_raw = pd.read_csv(file_path)
-
-        t = np.array(df_raw[self.design_params.sensor_data_column_names['t']])
-        t = t - t[0]
-        N = t.shape[0]
-        delta_t = t[1:]-t[:-1]
-        T = np.mean(delta_t) # might not have very stable timestep, better to average
-        T_var = np.var(delta_t)
-        return SensorData(
-            N, 
-            T,
-            T_var, 
-            t, 
-            np.array(df_raw[self.design_params.sensor_data_column_names['r']]), 
-            np.array(df_raw[self.design_params.sensor_data_column_names['u']]), 
-            np.array(df_raw[self.design_params.sensor_data_column_names['y']])
-        )
-
     def load_train_test_data(self) -> tuple[SensorData, List[SensorData]]:
-        train_sd = self.load_sensor_data(self.train_data_file_path)
+        train_sd = SensorData.load_sensor_data(self.train_data_file_path)
 
         list_test_sd = []
         for file_path in self.train_test_data_file_paths:
             if file_path != self.train_data_file_path:
-                list_test_sd.append(self.load_sensor_data(file_path))
+                list_test_sd.append(SensorData.load_sensor_data(file_path))
 
         return train_sd, list_test_sd
 
 class PlantProcessMaterialGenerator:
     train_test_data_folder:         pathlib.Path            = None
     graph_data_cmds:                PlantGraphDataCommands  = None
-    plant_design_plan_file_name:    pathlib.Path            = None
     train_test_data_file_paths:     List[pathlib.Path]      = []
-    plant_design_plan:              PlantDesignPlan         = None
 
     def __init__(
         self, 
         train_test_data_folder: pathlib.Path, 
-        graph_data_cmds: PlantGraphDataCommands,
-        plant_design_plan_file_name: pathlib.Path
+        graph_data_cmds: PlantGraphDataCommands
     ):
         self.train_test_data_folder = train_test_data_folder
         self.graph_data_cmds = graph_data_cmds
-        self.plant_design_plan_file_name = plant_design_plan_file_name
         # Process Material name constant sub strings
         self.pm_n_ss = (r'plant_n', r'_d', r'_', r'_ds', r'_reg')
 
@@ -722,7 +861,7 @@ class PlantProcessMaterialGenerator:
 
         self._list_data_files()
 
-        self.plant_design_plan = PlantDesignPlan.from_file(self.plant_design_plan_file_name)
+        
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:
         raise NotImplementedError('This method should be implemeted by all derived classes, needs to provide a list of process_materials for Pool to generate processes.')
@@ -758,8 +897,7 @@ class PlantProcessMaterialGenerator:
         
         design_params = PlantDesignParams.complete_design_params(
             pregen_params, 
-            regularization=regularization,
-            sensor_data_column_names=self.plant_design_plan.sensor_data_column_names
+            regularization=regularization
         )
 
         return PlantProcessMaterial(
@@ -782,15 +920,14 @@ class PlantPMGTryAll(PlantProcessMaterialGenerator):
     ):
         super().__init__(
             train_test_data_folder, 
-            graph_data_cmds,
-            plant_design_plan_file_name
+            graph_data_cmds
         )
        
 
         # Will break down the line if not in float, as int32 is not serializable 
         # by dataclass_json (bite me why)
         self.reg_arr = regularization_array.astype('float64')
-
+        self.plant_design_plan = PlantDesignPlan.from_file(plant_design_plan_file_name)
 
     def give_process_material_list(self) -> List[PlantProcessMaterial]:
         # Find what shape the plants we wan't to train will have
@@ -808,8 +945,7 @@ class PlantPMGTryAll(PlantProcessMaterialGenerator):
                 #regularization = 0
                     design_params = PlantDesignParams.complete_design_params(
                         pregen_params, 
-                        regularization=regularization,
-                        sensor_data_column_names=self.plant_design_plan.sensor_data_column_names
+                        regularization=regularization
                     )
                     name = self._find_p_m_name(design_params, i)
                     process_material = PlantProcessMaterial(
@@ -829,13 +965,11 @@ class PlantPMGTrySelection(PlantProcessMaterialGenerator):
         self, 
         train_test_data_folder: pathlib.Path,
         graph_data_cmds: PlantGraphDataCommands,
-        plant_design_plan_file_name : pathlib.Path, 
         result_file_path: pathlib.Path
     ):
         super().__init__(
             train_test_data_folder, 
-            graph_data_cmds,
-            plant_design_plan_file_name
+            graph_data_cmds
         )
         self.result_file_path = result_file_path
 
