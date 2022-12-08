@@ -1,16 +1,17 @@
 import control
 import numpy as np
 from typing import List, Callable
+from matplotlib import pyplot as plt
 
 from sklearn.cluster import MeanShift
 
-def getNumCoeffList(p: control.TransferFunction) -> List[float]:
+def _getNumCoeffList(p: control.TransferFunction) -> List[float]:
     return p.num[0][0]
 
-def getDenCoeffList(p: control.TransferFunction) -> List[float]:
+def _getDenCoeffList(p: control.TransferFunction) -> List[float]:
     return p.den[0][0]
 
-def getAverageCoeffArray(
+def _getAverageCoeffArray(
     plant_list: List[control.TransferFunction], 
     fromWhereFunc: Callable[[control.TransferFunction], List[float]]
 ) -> np.ndarray:
@@ -30,13 +31,13 @@ def getAverageCoeffArray(
             list_av_coef.insert(0,0)
     return np.array(list_av_coef)
 
-def getPlantZeros(p: control.TransferFunction) -> List[complex]:
+def _getPlantZeros(p: control.TransferFunction) -> List[complex]:
     return p.zeros()
 
-def getPlantPoles(p: control.TransferFunction) -> List[complex]:
+def _getPlantPoles(p: control.TransferFunction) -> List[complex]:
     return p.poles()
 
-def getCmplxArrayFrmPlants(
+def _getCmplxArrayFrmPlants(
     plant_list: List[control.TransferFunction], 
     fromWhereFunc: Callable[[control.TransferFunction], List[float]]
 ) -> np.ndarray:
@@ -46,7 +47,7 @@ def getCmplxArrayFrmPlants(
 
     return(np.array(all_cmplx))
 
-def cmplxNbrsToPoints(all_cmplx: np.ndarray) -> np.ndarray:
+def _cmplxNbrsToPoints(all_cmplx: np.ndarray) -> np.ndarray:
 
     all_real = np.reshape(np.real(all_cmplx),(all_cmplx.shape[0],1))
     all_imag = np.reshape(np.imag(all_cmplx),(all_cmplx.shape[0],1))
@@ -55,24 +56,11 @@ def cmplxNbrsToPoints(all_cmplx: np.ndarray) -> np.ndarray:
 
     return all_points
 
-def clusterPoints(all_points: np.ndarray, bandwidth: float, min_nbr_point:float=1) -> np.ndarray:
+def _clusterPoints(all_points: np.ndarray, bandwidth: float, min_nbr_point:float=1) -> np.ndarray:
     clustering  = MeanShift(bandwidth=bandwidth,min_bin_freq=min_nbr_point,bin_seeding=True,cluster_all=False).fit(all_points)
 
     labels = clustering.labels_ #TODO: eliminate some poles/zeros if not enough points
     return clustering.cluster_centers_
-
-def find_nom_plant_with_clust(plant_list: List[control.TransferFunction], bandwidth_zeros: float, bandwidth_poles: float) -> control.TransferFunction:
-    all_zeros_cmplx = getCmplxArrayFrmPlants(plant_list, getPlantZeros)
-    all_zeros_points = cmplxNbrsToPoints(all_zeros_cmplx)
-    zeros_cluster_centers = clusterPoints(all_zeros_points, bandwidth=bandwidth_zeros, min_nbr_point=3)
-    
-    all_poles_cmplx = getCmplxArrayFrmPlants(plant_list, getPlantPoles)
-    all_poles_points = cmplxNbrsToPoints(all_poles_cmplx)
-    poles_cluster_centers = clusterPoints(all_poles_points, bandwidth=bandwidth_poles, min_nbr_point=3)
-
-    num = np.poly(np.ravel(zeros_cluster_centers))
-    den = np.poly(np.ravel(poles_cluster_centers))
-    return control.tf(num, den)
 
 def plant_av_method_1(plant_list: List[control.TransferFunction]) -> control.TransferFunction:
     # Method 1
@@ -92,8 +80,8 @@ def plant_av_method_1(plant_list: List[control.TransferFunction]) -> control.Tra
 def plant_av_method_2(plant_list: List[control.TransferFunction]) -> control.TransferFunction:
     # Method 2
     # Find tf from average of coefficients
-    num_P_nom = getAverageCoeffArray(plant_list, getNumCoeffList)
-    den_P_nom = getAverageCoeffArray(plant_list, getDenCoeffList)
+    num_P_nom = _getAverageCoeffArray(plant_list, _getNumCoeffList)
+    den_P_nom = _getAverageCoeffArray(plant_list, _getDenCoeffList)
     P_nom_av = control.tf(num_P_nom, den_P_nom)
     
     return P_nom_av
@@ -111,3 +99,46 @@ def plant_av_method_3(plant_list: List[control.TransferFunction]) -> control.Tra
     P_nom = control.ss2tf(P_nom)
 
     return P_nom
+
+def find_nom_plant_with_clust(
+    plant_list: List[control.TransferFunction], 
+    bandwidth_zeros: float, 
+    bandwidth_poles: float
+) -> control.TransferFunction:
+    # Find nominal plant with clustering
+    # DOES NOT WORK FOR NOW : works well with poles but not zeros
+    all_zeros_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantZeros)
+    all_zeros_points = _cmplxNbrsToPoints(all_zeros_cmplx)
+    zeros_cluster_centers = _clusterPoints(all_zeros_points, bandwidth=bandwidth_zeros, min_nbr_point=3)
+    
+    all_poles_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantPoles)
+    all_poles_points = _cmplxNbrsToPoints(all_poles_cmplx)
+    poles_cluster_centers = _clusterPoints(all_poles_points, bandwidth=bandwidth_poles, min_nbr_point=3)
+
+    num = np.poly(np.ravel(zeros_cluster_centers))
+    den = np.poly(np.ravel(poles_cluster_centers))
+    return control.tf(num, den)
+
+def plot_nom_vs_all(P_nom, plant_list):
+    # Plot nominal plant vs all other plants
+    w_shared = np.arange(0.01, 1000.0, 0.01)
+    list_mag_abs = np.vstack([control.bode(plant, w_shared, plot=False)[0] for plant in plant_list])
+    list_mag_dB = 20 * np.log10(list_mag_abs)
+    mag_abs_nom = control.bode(P_nom, w_shared, plot=False)[0]
+    mag_dB_nom = 20 * np.log10(mag_abs_nom)
+
+    fig, ax = plt.subplots(2, 1)
+    ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
+    ax[1].set_ylabel(r'$||R_k(j\omega)|$ (absolute)')
+    for mag_dB, mag_abs, index in zip(list_mag_dB, list_mag_abs, range(len(list_mag_dB))):
+        ax[0].plot(w_shared, mag_dB, label=f'P{index}', color=f'C{index}')
+        ax[1].plot(w_shared, mag_abs, label=f'P{index}', color=f'C{index}')
+    ax[0].plot(w_shared, mag_dB_nom, label=f'P_nom', color=f'black')
+    ax[1].plot(w_shared, mag_abs_nom, label=f'P_nom', color=f'black')
+    for a in np.ravel(ax):
+        a.set_xlabel(r'$\omega$ (rad/s)')
+        a.set_xscale('log')
+        a.grid(visible=True)
+    ax[0].legend(loc='lower left', ncol=3)
+    ax[1].legend(loc='upper right', ncol=3)
+    fig.tight_layout()

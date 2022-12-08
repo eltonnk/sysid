@@ -48,28 +48,7 @@ if __name__ == '__main__':
 
     print(f'Poles of reduced tf: {P_nom.poles()}')
 
-    # Plot nominal plant vs all other plants
-    w_shared = np.arange(0.01, 1000.0, 0.01)
-    list_mag_abs = np.vstack([control.bode(plant, w_shared, plot=False)[0] for plant in plant_list])
-    list_mag_dB = 20 * np.log10(list_mag_abs)
-    mag_abs_nom = control.bode(P_nom, w_shared, plot=False)[0]
-    mag_dB_nom = 20 * np.log10(mag_abs_nom)
-
-    fig, ax = plt.subplots(2, 1)
-    ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
-    ax[1].set_ylabel(r'$||R_k(j\omega)|$ (absolute)')
-    for mag_dB, mag_abs, index in zip(list_mag_dB, list_mag_abs, range(len(list_mag_dB))):
-        ax[0].plot(w_shared, mag_dB, label=f'P{index}', color=f'C{index}')
-        ax[1].plot(w_shared, mag_abs, label=f'P{index}', color=f'C{index}')
-    ax[0].plot(w_shared, mag_dB_nom, label=f'P_nom', color=f'black')
-    ax[1].plot(w_shared, mag_abs_nom, label=f'P_nom', color=f'black')
-    for a in np.ravel(ax):
-        a.set_xlabel(r'$\omega$ (rad/s)')
-        a.set_xscale('log')
-        a.grid(visible=True)
-    ax[0].legend(loc='lower left', ncol=3)
-    ax[1].legend(loc='upper right', ncol=3)
-    fig.tight_layout()
+    nom.plot_nom_vs_all(P_nom, plant_list)
 
     # Find the residuals
     list_R = unc_bound.residuals(P_nom, plant_list)

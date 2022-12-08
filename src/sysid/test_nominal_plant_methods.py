@@ -1,4 +1,4 @@
-import part1_2_find_p_nom_and_w2 as fpnom
+import plant_nominal as fpnom
 import numpy as np
 import plant_util as util
 
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     a = np.array([1+2j, 
                   3+4j])
 
-    print(fpnom.cmplxNbrsToPoints(a))
+    print(fpnom._cmplxNbrsToPoints(a))
 
     b = np.array([[1., 2.], [3., 4.]])
 
@@ -22,14 +22,14 @@ if __name__ == '__main__':
     plant_list = util.load_plant_list_from_file('good_plants/v3/plants_trained_v3.json')
     plant_list = [p.delta_y_over_delta_u_c for p in plant_list]
 
-    all_poles_cmplx = fpnom.getCmplxArrayFrmPlants(plant_list, fpnom.getPlantPoles)
+    all_poles_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom.getPlantPoles)
 
-    all_poles_points = fpnom.cmplxNbrsToPoints(all_poles_cmplx)
+    all_poles_points = fpnom._cmplxNbrsToPoints(all_poles_cmplx)
 
     print(all_poles_points)
 
     
-    cluster_centers = fpnom.clusterPoints(all_poles_points, bandwidth=5)
+    cluster_centers = fpnom._clusterPoints(all_poles_points, bandwidth=5)
 
     print(cluster_centers)
     # print(labels)
@@ -44,14 +44,14 @@ if __name__ == '__main__':
     fig.tight_layout()
 
 
-    all_zeros_cmplx = fpnom.getCmplxArrayFrmPlants(plant_list, fpnom.getPlantZeros)
+    all_zeros_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom.getPlantZeros)
 
-    all_zeros_points = fpnom.cmplxNbrsToPoints(all_zeros_cmplx)
+    all_zeros_points = fpnom._cmplxNbrsToPoints(all_zeros_cmplx)
 
     print(all_zeros_points)
 
     
-    cluster_centers = fpnom.clusterPoints(all_zeros_points, bandwidth=50, min_nbr_point=3)
+    cluster_centers = fpnom._clusterPoints(all_zeros_points, bandwidth=50, min_nbr_point=3)
 
     print(cluster_centers)
     # print(labels)
