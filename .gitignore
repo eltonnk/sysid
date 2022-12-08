@@ -1,4 +1,4 @@
 __pycache__
-env
-custom_wheels
-plant_test_plots
+env/
+custom_wheels/
+plant_test_plots/

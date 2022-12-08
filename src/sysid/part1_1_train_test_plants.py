@@ -72,20 +72,20 @@ if __name__ == '__main__':
 
     TRAINING_PLAN_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'training_plans/plan.json')
 
-    VERSION = 'v3'
+    VERSION = 'v1'
 
     if try_all:
         # Here we train over a range of parameters, determined by 
         # build_regularization_array and the 'plants_to_train.json' file
         graph_data_cmds = util.PlantGraphDataCommands()
         # Build array of possible regularization values 
-        regs = util.build_regularization_array(-1, 1, 1.1, 30)
+        regs = util.build_regularization_array(-2, 0, 1.1, 30)
         # Let's build a list of different training/testing scenarios to be executed on different processes
         pmg = util.PlantPMGTryAll(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, regs)
     else:
         # Here we train only using certain parameters we have found to be optimal before
         # Change save_graph to True to better visualize if optimal trained plants can recreate output signals from input
-        graph_data_cmds = util.PlantGraphDataCommands(save_graph=True)
+        graph_data_cmds = util.PlantGraphDataCommands(save_graph=True, show=True)
         result_names_file_path = pathlib.Path(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/good_plants_{VERSION}.txt')
         # Let's recreate a list of good training/testing scenarios to be executed (again) on different processes
         pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, result_names_file_path)
