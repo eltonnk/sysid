@@ -1,4 +1,11 @@
 from __future__ import annotations
+
+# TODO: fix this Abomination
+try:
+    from . import d2c
+except ImportError:
+    import d2c
+
 from typing import Callable, List
 import control
 import numpy as np
@@ -7,7 +14,6 @@ from dataclasses import dataclass, field
 import json
 import dataclasses_json
 from dataclasses_json import dataclass_json
-from . import d2c
 import pathlib
 import re
 from multiprocessing import Pool
