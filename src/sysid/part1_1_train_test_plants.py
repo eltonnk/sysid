@@ -45,15 +45,9 @@ def parallel_train_test_process(process_material: util.PlantProcessMaterial) -> 
     #     return None
 
 if __name__ == '__main__':
-    # params 
 
-    debug_print = True
-    reduce_interm_graph = False
-
-   
     # Plotting parameters
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif', size=14)
+
     plt.rc('lines', linewidth=2)
     plt.rc('axes', grid=True)
     plt.rc('grid', linestyle='--')
@@ -94,7 +88,7 @@ if __name__ == '__main__':
 
     end_t = time.perf_counter()
     total_duration = end_t - start_t
-    print(f'Total Processing took {total_duration:.2f}s total')
+    print(f'Total Processing took {total_duration:.2f} seconds')
 
     # Put all trained plants in a file, with test results
     if try_all:
