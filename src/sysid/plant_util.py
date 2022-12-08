@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import json
 import dataclasses_json
 from dataclasses_json import dataclass_json
-import d2c
+from . import d2c
 import pathlib
 import re
 from multiprocessing import Pool
