@@ -62,9 +62,11 @@ if __name__ == '__main__':
     
     MAIN_FILE_FOLDER = util.find_io_files_folder()
 
-    DATA_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'DATA/')
+    MAIN_FILE_PATH = pathlib.Path(MAIN_FILE_FOLDER)
 
-    TRAINING_PLAN_PATH = pathlib.Path(MAIN_FILE_FOLDER + 'training_plans/plan.json')
+    DATA_PATH = MAIN_FILE_PATH / 'DATA/'
+
+    TRAINING_PLAN_PATH = MAIN_FILE_PATH / 'training_plans/plan.json'
 
     VERSION = 'v1'
 
@@ -80,7 +82,7 @@ if __name__ == '__main__':
         # Here we train only using certain parameters we have found to be optimal before
         # Change save_graph to True to better visualize if optimal trained plants can recreate output signals from input
         graph_data_cmds = util.PlantGraphDataCommands(save_graph=True, show=True)
-        result_names_file_path = pathlib.Path(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/good_plants_{VERSION}.txt')
+        result_names_file_path = MAIN_FILE_PATH / f'good_plants/{VERSION}/good_plants_{VERSION}.txt'
         # Let's recreate a list of good training/testing scenarios to be executed (again) on different processes
         pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, result_names_file_path)
 
@@ -93,12 +95,12 @@ if __name__ == '__main__':
     # Put all trained plants in a file, with test results
     if try_all:
         # Save a file with trained plants and corresponding statistics
-        design_results.save_results_to_file(MAIN_FILE_FOLDER + f'try_all_results/results_plants_trained.json')
+        design_results.save_results_to_file(MAIN_FILE_PATH / f'try_all_results/results_plants_trained.json')
         # Only save the trained plant coefficients: this is the only thing we need going forward
-        design_results.save_plant_list_to_file(MAIN_FILE_FOLDER + f'try_all_results/plants_trained.json')
+        design_results.save_plant_list_to_file(MAIN_FILE_PATH / f'try_all_results/plants_trained.json')
     else:
-        design_results.save_results_to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/results_plants_trained_{VERSION}.json')
-        design_results.save_plant_list_to_file(MAIN_FILE_FOLDER + f'good_plants/{VERSION}/plants_trained_{VERSION}.json')
+        design_results.save_results_to_file(MAIN_FILE_PATH / f'good_plants/{VERSION}/results_plants_trained_{VERSION}.json')
+        design_results.save_plant_list_to_file(MAIN_FILE_PATH / f'good_plants/{VERSION}/plants_trained_{VERSION}.json')
     # %%
     # Show plots
     # plt.show()

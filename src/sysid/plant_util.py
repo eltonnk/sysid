@@ -666,16 +666,16 @@ class PlantDesignOutcome:
 class PlantDesignResult:
     outcomes: list[PlantDesignOutcome] = field(default_factory=list)
 
-    def save_results_to_file(self, file_name: str):
+    def save_results_to_file(self, file_path: pathlib.Path):
         # Put all trained plants in a file, with test results
         design_results_dict = self.to_dict()
 
-        with open(file_name, 'w') as design_results_file:
+        with open(file_path, 'w') as design_results_file:
             design_results_file.write(json.dumps(design_results_dict, indent=4))
 
-    def save_plant_list_to_file(self, file_name: str):
+    def save_plant_list_to_file(self, file_path: pathlib.Path):
         list_dict_plant = [o.plant.to_dict() for o in self.outcomes]
-        with open(file_name, 'w') as design_plants_file:
+        with open(file_path, 'w') as design_plants_file:
             design_plants_file.write(json.dumps(list_dict_plant, indent=4))
 
 @dataclass
