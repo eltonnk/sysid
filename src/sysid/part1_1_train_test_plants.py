@@ -60,9 +60,7 @@ if __name__ == '__main__':
     
     try_all = False
     
-    MAIN_FILE_FOLDER = util.find_io_files_folder()
-
-    MAIN_FILE_PATH = pathlib.Path(MAIN_FILE_FOLDER)
+    MAIN_FILE_PATH = util.find_io_files_folder()
 
     DATA_PATH = MAIN_FILE_PATH / 'DATA/'
 

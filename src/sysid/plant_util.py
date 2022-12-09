@@ -34,14 +34,14 @@ STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
 
 
 
-def find_io_files_folder() -> str:
+def find_io_files_folder() -> pathlib.Path:
     MAIN_FILE_FOLDER = askdirectory(title='Select Input/Output Files Folder')
     if MAIN_FILE_FOLDER == '':
         raise ValueError('Must select an Input/Output Files Folder')
     else:
         MAIN_FILE_FOLDER = MAIN_FILE_FOLDER + '/'
 
-    return MAIN_FILE_FOLDER
+    return pathlib.Path(MAIN_FILE_FOLDER)
 
 @dataclass
 class SensorData:
@@ -162,15 +162,15 @@ class Plant:
     discrt_coefs : List[int] = field(default_factory=list)
 
     @classmethod
-    def from_file(cls, file_name: str) -> Plant:
-        with open(file_name, 'r') as pl_file:
+    def from_file(cls, file_path: pathlib.Path) -> Plant:
+        with open(file_path, 'r') as pl_file:
             pl_json = json.load(pl_file)
 
         return cls.from_dict(pl_json)
 
-    def to_file(self, file_name: str):
+    def to_file(self, file_path: pathlib.Path):
         self_dict = self.to_dict()
-        with open(file_name, 'w') as plant_file:
+        with open(file_path, 'w') as plant_file:
             plant_file.write(json.dumps(self_dict, indent=4))
 
 @dataclass
@@ -890,8 +890,8 @@ def test_all_possible_trained_plants(
 
     return design_results
 
-def load_plant_list_from_file(file_name: str) -> List[Plant]:
-    with open(file_name, 'r') as pl_tr_file:
+def load_plant_list_from_file(file_path: pathlib.Path) -> List[Plant]:
+    with open(file_path, 'r') as pl_tr_file:
         pl_tr_json = json.load(pl_tr_file)
 
     return [Plant.from_dict(d) for d in pl_tr_json]
