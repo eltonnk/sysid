@@ -133,12 +133,14 @@ def add_list_plant_to_mag_plot(
     w_shared:np.ndarray,
     ax: list[Axes], 
     plant_list: list[control.TransferFunction],
+    custom_plant_names: list[str] = []
 ):
     list_mag_abs = np.vstack([control.bode(plant, w_shared, plot=False)[0] for plant in plant_list])
     list_mag_dB = 20 * np.log10(list_mag_abs)
     for mag_dB, mag_abs, index in zip(list_mag_dB, list_mag_abs, range(len(list_mag_dB))):
-        ax[0].plot(w_shared, mag_dB, label=f'P{index}', color=f'C{index}')
-        ax[1].plot(w_shared, mag_abs, label=f'P{index}', color=f'C{index}')
+        label = custom_plant_names[index] if custom_plant_names else f'P{index}'
+        ax[0].plot(w_shared, mag_dB, label=label, color=f'C{index}')
+        ax[1].plot(w_shared, mag_abs, label=label, color=f'C{index}')
 
 def finish_magnitude_plots(fig:Figure, ax:Axes):
     for a in np.ravel(ax):
