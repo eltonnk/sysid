@@ -121,7 +121,7 @@ def find_nom_plant_with_clust(
     den = np.poly(np.ravel(poles_cluster_centers))
     return control.tf(num, den)
 
-def setupt_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndaray]:
+def setup_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndaray]:
     w_shared = np.arange(0.01, 1000.0, 0.01)
     fig, ax = plt.subplots(2, 1)
     ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
@@ -151,7 +151,7 @@ def finish_magnitude_plots(fig:Figure, ax:Axes):
 
 def plot_nom_vs_all(P_nom: control.TransferFunction, plant_list: list[control.TransferFunction]):
     # Plot nominal plant vs all other plants
-    fig, ax, w_shared = setupt_magnitude_plots()
+    fig, ax, w_shared = setup_magnitude_plots()
     add_list_plant_to_mag_plot(w_shared, ax, plant_list)
     # Add nominal plant bode plot over bode plant of all plants
     mag_abs_nom = control.bode(P_nom, w_shared, plot=False)[0]
