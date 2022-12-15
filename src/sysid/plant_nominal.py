@@ -121,7 +121,7 @@ def find_nom_plant_with_clust(
     den = np.poly(np.ravel(poles_cluster_centers))
     return control.tf(num, den)
 
-def setup_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndaray]:
+def setup_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndarray]:
     w_shared = np.arange(0.01, 1000.0, 0.01)
     fig, ax = plt.subplots(2, 1)
     ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
