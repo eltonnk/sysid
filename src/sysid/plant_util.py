@@ -667,8 +667,8 @@ class PlantDesignResult:
     outcomes: list[PlantDesignOutcome] = field(default_factory=list)
 
     def _make_parent_folder(self, file_path: pathlib.Path):
-        if not file_path.parent[0].exists():
-            file_path.parent[0].mkdir(parents=True)
+        if not file_path.parents[0].exists():
+            file_path.parents[0].mkdir(parents=True)
 
     def save_results_to_file(self, file_path: pathlib.Path):
         # Put all trained plants in a file, with test results
