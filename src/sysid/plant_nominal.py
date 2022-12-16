@@ -129,6 +129,19 @@ def setup_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndarray]:
 
     return fig, ax, w_shared
 
+def add_single_plant_to_mag_plot(
+    w_shared:np.ndarray,
+    ax: list[Axes],
+    plant: control.TransferFunction,
+    custom_plant_name: str,
+    custom_color: str
+):
+    mag_abs_nom = control.bode(plant, w_shared, plot=False)[0]
+    mag_dB_nom = 20 * np.log10(mag_abs_nom)
+    ax[0].plot(w_shared, mag_dB_nom, label=custom_plant_name, color=custom_color)
+    ax[1].plot(w_shared, mag_abs_nom, label=custom_plant_name, color=custom_color)
+
+
 def add_list_plant_to_mag_plot(
     w_shared:np.ndarray,
     ax: list[Axes], 
@@ -155,9 +168,5 @@ def plot_nom_vs_all(P_nom: control.TransferFunction, plant_list: list[control.Tr
     # Plot nominal plant vs all other plants
     fig, ax, w_shared = setup_magnitude_plots()
     add_list_plant_to_mag_plot(w_shared, ax, plant_list)
-    # Add nominal plant bode plot over bode plant of all plants
-    mag_abs_nom = control.bode(P_nom, w_shared, plot=False)[0]
-    mag_dB_nom = 20 * np.log10(mag_abs_nom)
-    ax[0].plot(w_shared, mag_dB_nom, label=f'P_nom', color=f'black')
-    ax[1].plot(w_shared, mag_abs_nom, label=f'P_nom', color=f'black')
+    add_single_plant_to_mag_plot(w_shared, ax, P_nom, f'P_nom', f'black')
     finish_magnitude_plots(fig, ax)
