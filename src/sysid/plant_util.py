@@ -35,6 +35,19 @@ STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
 
 
 def find_io_files_folder() -> pathlib.Path:
+    """This functions opens a windows file explorer to select a folder.
+
+    Returns
+    -------
+    pathlib.Path
+        This is the path of the selected folder. This folder should or will
+        contain files used or produced by the following functions in this repo.
+
+    Raises
+    ------
+    ValueError
+        Raises an error if no folder is selected, which returns an empty path string.
+    """
     MAIN_FILE_FOLDER = askdirectory(title='Select Input/Output Files Folder')
     if MAIN_FILE_FOLDER == '':
         raise ValueError('Must select an Input/Output Files Folder')
@@ -45,6 +58,37 @@ def find_io_files_folder() -> pathlib.Path:
 
 @dataclass
 class SensorData:
+    """ This class is used to store data collected from inputs (u) and outputs (y)
+    of a plant. This data can later be used to identify a model of this plant,
+    and to verify the validity of this model, using the id_plant and test_plant
+    methods for the PlantDesignOutcome class.
+
+    Attributes
+    ----------
+    N : int
+        Number of datapoints contained in this class. The same number of datapoints
+        should be found in t, r, u and y.
+    T : float
+        Average timestep between each timestamp in t.
+    T_var : float
+        Variation between all values of timesteps between timestamps in t.
+    t : np.ndarray
+        Timestamp at which each datapoint was collected. Should be in seconds.
+    r : np.ndarray
+        Command values at each timestamp. Since the system is identified in
+        open-loop at the moment, the command value is not used. Corresponds to 
+        the desired output value of the system/plant. The error betweent this
+        desired output and the actual output is the signal that will be used to 
+        drive a controller, which in turn drives the plant.
+    u : np.ndarray
+        Input values at each timestamp. Corresponds to the signal that drives the
+        system/plant that should be identified.
+    y : np.ndarray
+        Output values at each timestamp. Corresponds to the actual output of the
+        system/plant, as read by sensors and filters. The output collected here
+        considred as the output of the plant when driven directly through the 
+        input u in an open-loop fashion. 
+    """
     N: int
     T: float
     T_var: float
@@ -54,14 +98,17 @@ class SensorData:
     y: np.ndarray
 
     def plot(self):
+        """Can be used to display the r, u and y timeseries contained in a 
+        SensorData class.
+        """
         fig, ax = plt.subplots(3, 1)
-        ax[0].set_ylabel(r'$r(t)$ (kN)')
-        ax[1].set_ylabel(r'$u(t)$ (V)')
-        ax[2].set_ylabel(r'$y(t)$ (kN)')
+        ax[0].set_ylabel(r'$r(t)$')
+        ax[1].set_ylabel(r'$u(t)$')
+        ax[2].set_ylabel(r'$y(t)$')
         # Plot data
-        ax[0].plot(self.t, self.r, label='command', color='C0')
-        ax[1].plot(self.t, self.u, label='input', color='C1')
-        ax[2].plot(self.t, self.y, label='output', color='C2')
+        ax[0].plot(self.t, self.r, label='Command', color='C0')
+        ax[1].plot(self.t, self.u, label='Input', color='C1')
+        ax[2].plot(self.t, self.y, label='Output', color='C2')
         for a in np.ravel(ax):
             a.set_xlabel(r'$t$ (s)')
             a.legend(loc='upper right')
@@ -76,13 +123,68 @@ class SensorData:
 
 @dataclass
 class PlantPreGeneratedDesignParams:
+    """This class is used to specify parameters used by the PlantDesignOutcome 
+    class to train a plant model using its id_plant method. A set of these
+    parameters
+
+    Attributes
+    ----------
+    num_order : int
+        The numerator order of the plant model to be trained, which is 
+        represented as a transfer fucntion.
+    denum_order : int
+        The denominator order of the plant model to be trained, which is 
+        represented as a transfer fucntion.
+    better_cond_method: str
+        Describes how input (u) and output (y) data from the SensorData class
+        will be manipulated in the id_plant method of the PlantDesignOutcome 
+        class to better. Either allowed values for this attributes are defined
+        by the NORMALIZING and STANDARDIZING global variables.
+
+    """
     num_order                   : int = field(default=0 )
     denum_order                 : int = field(default=1 )
     better_cond_method          : str = field(default='')
 
-def build_regularization_array(expBegin: int, expEnd: int, mantEnd: float, maxNbrRegVals: int) -> np.ndarray:
+def build_regularization_array(
+    expBegin: int, 
+    expEnd: int, 
+    mantEnd: float, 
+    maxNbrRegVals: int,
+    ) -> np.ndarray:
+    """Builds an array of regularization values. Regularization to help better conditioning when
+    training a plant model usign least-squares.
+
+    Parameters
+    ----------
+    expBegin : int
+        the first value in the array will be a number x such that 
+        x = 0 * 10^(expBegin)
+    expEnd : int
+        the last value in the array will be a number x such that 
+        x = mantEnd * 10^(expEnd)
+    mantEnd : float
+        the last value in the array will be a number x such that 
+        x = mantEnd * 10^(expEnd)
+    maxNbrRegVals : int
+        maximum value of values in the array. It is not guaranteed this number
+        of values will be found in the array, since all zero values will be
+        removed but one.
+
+    Returns
+    -------
+    np.ndarray
+        An array of values growing from zero to bigger and bigger values, with
+        each value having a mantissa and an exponent in base ten growing bigger
+        and bigger
+
+    Raises
+    ------
+    ValueError
+        Need to give this function a valid mantissa value in base 10.
+    """
     if mantEnd <= 0.0 or mantEnd >= 10.0:
-        raise ValueError("")
+        raise ValueError("A mantissa in base 10 is by defintion between zero and 10.")
 
     nbrVals = int(np.sqrt(maxNbrRegVals))
     a1 = np.logspace(expBegin, expEnd, nbrVals)
@@ -97,6 +199,29 @@ def build_regularization_array(expBegin: int, expEnd: int, mantEnd: float, maxNb
 
 @dataclass
 class PlantDesignParams(PlantPreGeneratedDesignParams):
+    """This class derived from PlantPreGeneratedDesignParams contains additional
+    parameters used during plant model identification in the id_model method of
+    the PlantDesignOutcome class.
+
+    These paramaters describe a comple training scenario and are constructed,
+    with very specific and/or global parameters added on top of the orginal
+    parameters found in the PlantPreGeneratedDesignParams class.
+
+    Attributes
+    ----------
+    regularization : float
+        Training with more regularization will help to better condition the 
+        least-squares problem and reduce overfitting. This paramater is very
+        specific and is intended to differ in every training/testing scenario 
+        produced when building a PlantDesignOutcome class and calling its
+        id_plant and train_plant methods.
+    sensor_data_column_names: 
+        associates the header of each column of a csv file used to create 
+        instances of a SensorData class to a specific member of that class. Each
+        column in the csv file is a np.ndarray in SensorData. This parameter is
+        the most global one and should be identical for each instance of a 
+        PlantDesignOutcome class, and the subsequent call to id_plant.
+    """
     regularization:             float           = field(default=0)
     sensor_data_column_names:   dict[str, str]  = field(default_factory=dict)
 
