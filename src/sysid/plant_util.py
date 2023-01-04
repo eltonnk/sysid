@@ -216,7 +216,7 @@ class PlantDesignParams(PlantPreGeneratedDesignParams):
         produced when building a PlantDesignOutcome class and calling its
         id_plant and train_plant methods.
     sensor_data_column_names: 
-        associates the header of each column of a csv file used to create 
+        Associates the header of each column of a csv file used to create 
         instances of a SensorData class to a specific member of that class. Each
         column in the csv file is a np.ndarray in SensorData. This parameter is
         the most global one and should be identical for each instance of a 
@@ -233,6 +233,28 @@ class PlantDesignParams(PlantPreGeneratedDesignParams):
         sensor_data_column_names: dict[str, str] = {}
 
     ) -> PlantDesignParams:
+        """Used to complete a PlantPreGeneratedDesignParams instance with global 
+        and specific parameters.
+
+        Parameters
+        ----------
+        pregen : PlantPreGeneratedDesignParams
+            Information used to train a plant model, usually found in a file
+            with a list of such pregen'ed params.           
+        regularization : float, optional
+            This is a specific parameter. Can be used to penalize high values of
+            discrete transfer function coefficients, by default 0
+        sensor_data_column_names : dict[str, str], optional
+            This is a global parameter. Used to identify which columns in a csv 
+            file correspond to input and output signals of the plant, by default {}
+
+        Returns
+        -------
+        PlantDesignParams
+            Complete set of parameters used to specify how a plant should be trained,
+            with information on the data used to do so and information on how that
+            data should be processed before training.
+        """
         return cls(
             pregen.num_order, 
             pregen.denum_order,
@@ -244,11 +266,48 @@ class PlantDesignParams(PlantPreGeneratedDesignParams):
 @dataclass_json
 @dataclass
 class PlantDesignPlan:
+    """This class is intended to be genereated from a *.json file containing a
+    set of parameters, each set corresponding to one specific type of plant 
+    training scenario. This file, and this class, also contain more generic
+    parameters that should be applied to every training scenario. 
+    Finally, every training scenario, in the form of 
+    PlantPreGeneratedDesignParams instances in the plants_to_train attribute, 
+    should be completed with the global paramaters in PlantDesignPlan and more
+    specific parameters to produce even more training scenarios for the
+    id_plant method to run in the PlantDesignOutcome class.
+
+    Attributes
+    ----------
+    sensor_data_column_names : dict[str, str], optional
+        This is a global parameter. Used to identify which columns in a csv 
+        file correspond to input and output signals of the plant, by default {}
+    plants_to_train : list[PlantPreGeneratedDesignParams]
+        Every training scenario is describded by a PlantPreGeneratedDesignParams
+        instance in this list. Many specific scenarios can be generated from
+        these scenarios by adding a regularization value to the attributes 
+        in a PlantPreGeneratedDesignParams instance and creating a 
+        PlantDesignParams class.
+
+    """
     sensor_data_column_names:   dict[str, str]                      = field(default_factory=dict)
     plants_to_train:            list[PlantPreGeneratedDesignParams] = field(default_factory=list)
 
     @classmethod
     def from_file(cls, file_path: pathlib.Path) -> PlantDesignPlan:
+        """ Takes a *.json file withh all information necessary to build a 
+        PlantDesignPlan class instance and creates such an instance.
+
+        Parameters
+        ----------
+        file_path : pathlib.Path
+            Where the *.json file is located in the file system of the computer 
+            using this package.
+
+        Returns
+        -------
+        PlantDesignPlan
+            See class docstring above.
+        """
         with open(file_path, 'r') as plant_json_file:
             plant_json_string = plant_json_file.read()
 
