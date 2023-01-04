@@ -316,6 +316,20 @@ class PlantDesignPlan:
         return plant_design_plan
 
 def tf_encoder(t: control.TransferFunction) -> str:
+    """ This function is used to serialize an instance of the 
+    control.TransferFunction class, in a way that is somewhat readable, and that
+    can be a valid string to be inserted in a json file.
+
+    Parameters
+    ----------
+    t : control.TransferFunction
+        Transfer function to be serialized.
+
+    Returns
+    -------
+    str
+        Serialized, json valid, string
+    """
     return (
         (t.num[0][0].__str__() + '|' + t.den[0][0].__str__())
         .replace('[ ', '[')
@@ -327,10 +341,32 @@ def tf_encoder(t: control.TransferFunction) -> str:
     )
 
 def tf_decoder(s_t: str) -> control.TransferFunction:
+    """This function is used to deserialize a string that contains all the
+    coefficients in a control.TransferFucntion instance. This string has to have
+    been generated using the tf_encoder function found in this module.
+
+    Parameters
+    ----------
+    s_t : str
+        String to deserialize. Usually originates from a *.json file.
+
+    Returns
+    -------
+    control.TransferFunction
+        Deserialized transfer function
+
+    Raises
+    ------
+    TypeError
+        Since transfer functions are serialized in a format such that they can 
+        be interpreted as a list by a python interpreter, if the string input to 
+        this function is not a string that can be interpreted as such, this 
+        function will raise an error.
+    """
     split = s_t.split("|")
     s_num = split[0]
     s_den = split[1]
-    num = eval(s_num)
+    num = eval(s_num) # The horror :O
     den = eval(s_den)
     if not isinstance(num, list) or not isinstance(den, list) :
         raise TypeError('Decoded string was not list, might not be transfer function numerator or denominator')
