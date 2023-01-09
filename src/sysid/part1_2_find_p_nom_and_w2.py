@@ -10,8 +10,8 @@ import plant_nominal as nom
 if __name__ == '__main__':
     
     MAIN_FILE_PATH = util.find_io_files_folder()
-    METHOD = 2
-    VERSION = 'v1'
+    METHOD = 3
+    VERSION = 'v2'
     investigate_ORHP = True
 
     # Load trained plants
@@ -95,10 +95,10 @@ if __name__ == '__main__':
 
     # Initial bound coeffs
     kappa = 10**(-9/20)
-    x0 = np.array([3e-1, 0.9, 7.5e1, 1.1, 8e-1, 0.9, 7.2e0, 1.1, kappa])
+    x0 = np.array([3e-1     , 0.9    , 7.5e1    , 1.1    , 8e-1     , 0.9    , 7.2e0    , 1.1    , kappa           ])
     # Optimization algo params
-    lb = 1e-2
-    ub = 1e3
+    lb = np.array([3e-1-5e-1, 0.9-0.3, 7.5e1-5e1, 1.1-0.3, 8e-1-5e-1, 0.9-0.3, 7.2e0-5e0, 1.1-0.3, kappa-3**(-9/20)])
+    ub = np.array([3e-1+5e-1, 0.9+0.3, 7.5e1+5e1, 1.1+0.3, 8e-1+5e-1, 0.9+0.3, 7.2e0+5e0, 1.1+0.3, kappa+3**(-9/20)])
     max_iter = 100000
 
     if calc_optim:

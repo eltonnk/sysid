@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     TRAINING_PLAN_PATH = MAIN_FILE_PATH / 'training_plans/plan.json'
 
-    VERSION = 'v1'
+    VERSION = 'v2'
 
     if try_all:
         # Here we train over a range of parameters, determined by 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     else:
         # Here we train only using certain parameters we have found to be optimal before
         # Change save_graph to True to better visualize if optimal trained plants can recreate output signals from input
-        graph_data_cmds = util.PlantGraphDataCommands(save_graph=True, show=True)
+        graph_data_cmds = util.PlantGraphDataCommands(save_graph=True, show=False)
         result_names_file_path = MAIN_FILE_PATH / f'good_plants/{VERSION}/good_plants_{VERSION}.txt'
         # Let's recreate a list of good training/testing scenarios to be executed (again) on different processes
         pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, result_names_file_path)
