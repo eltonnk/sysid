@@ -121,13 +121,16 @@ def find_nom_plant_with_clust(
     den = np.poly(np.ravel(poles_cluster_centers))
     return control.tf(num, den)
 
-def setup_magnitude_plots() ->  tuple[Figure, list[Axes], np.ndarray]:
+def generate_std_frequency_array() -> np.ndarray:
     w_shared = np.arange(0.01, 1000.0, 0.01)
+    return w_shared
+
+def setup_magnitude_plots() ->  tuple[Figure, list[Axes]]:
     fig, ax = plt.subplots(2, 1)
     ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
     ax[1].set_ylabel(r'$||R_k(j\omega)|$ (absolute)')
 
-    return fig, ax, w_shared
+    return fig, ax
 
 def add_single_plant_to_mag_plot(
     w_shared:np.ndarray,

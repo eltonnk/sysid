@@ -14,7 +14,7 @@ to get the list of residual transfer functions. Then call::
 to compute the worst-case residual magnitude over all frequencies. Using that
 information, call::
 
-    x_opt, f_opt, objhist, xlast = unc_bound.run_optimization(
+    x_opt, f_opt, f_hist, x_hist = unc_bound.run_optimization(
         x0,
         lb,
         ub,
@@ -163,17 +163,17 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
         design variables.
     """
     # To keep track of design variable history
-    xlast = []
+    x_hist = []
     # To keep track of objective function history
-    flast = []
+    f_hist = []
     # To keep track of constraint function history
-    glast = []
+    g_hist = []
 
     def objcon(x):
         """Return both the objective function and constraint.
 
         Also tracks history of objective function through global variable
-        ``objhist``.
+        ``f_hist``.
         """
         # Call the function structure that will output mass and stress.
         f, g = _obj_and_constraints(x, params, constraint_params)
@@ -182,45 +182,45 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
     def obj(x):
         """Compute objective function to be passed to the optimizer.
 
-        Tracks design variable history in global ``xlast``, objective function
-        history in ``flast``, and constraint history in ``glast``.
+        Tracks design variable history in global ``x_hist``, objective function
+        history in ``f_hist``, and constraint history in ``g_hist``.
 
         Only re-computes objective function if design variables change since
         last iteration.
         """
         # Use these functions from the outer scope. The nonlocal needed becuase
-        # xlast, flast, and glast are being *updated*.
-        nonlocal xlast, flast
-        # If x and xlast are not the same, update x, the objective function,
+        # x_hist, f_hist, and g_hist are being *updated*.
+        nonlocal x_hist, f_hist
+        # If x and x_hist are not the same, update x, the objective function,
         # and constraint.
-        if not np.array_equal(x, xlast):
+        if not np.array_equal(x, x_hist):
             f, g = objcon(x)
             # Append objective history.
-            flast.append(f)
+            f_hist.append(f)
 
             # Append design variable history  (not done again in con so we don't add it twice)
-            xlast.append(x)
-        return flast[-1]
+            x_hist.append(x)
+        return f_hist[-1]
 
     def con(x):
         """Compute constraint function to be passed to the optimizer.
 
-        Tracks design variable history in global ``xlast``, objective function
-        history in ``flast``, and constraint history in ``glast``.
+        Tracks design variable history in global ``x_hist``, objective function
+        history in ``f_hist``, and constraint history in ``g_hist``.
 
         Only re-computes constraint function if design variables change since
         last iteration.
         """
         # Use these functions from the outer scope. The nonlocal needed becuase
-        # xlast, flast, and glast are being *updated*.
-        nonlocal xlast, glast
-        # If x and xlast are not the same, update x, the objective function,
+        # x_hist, f_hist, and g_hist are being *updated*.
+        nonlocal x_hist, g_hist
+        # If x and x_hist are not the same, update x, the objective function,
         # and constraint.
-        if not np.array_equal(x, xlast):
+        if not np.array_equal(x, x_hist):
             f, g = objcon(x)
             # Append constraint function history.
-            glast.append(g)
-        return glast[-1]
+            g_hist.append(g)
+        return g_hist[-1]
 
     # Set up optimization problem with ``scipy.optimize``
 
@@ -248,7 +248,7 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
     print('x =', res.x)
     print('f(x) =', res.fun)
     print('success =', res.success)
-    return res.x, res.fun, flast, xlast
+    return res.x, res.fun, f_hist, x_hist
 
 
 def _obj_and_constraints(x, params, constraint_params):

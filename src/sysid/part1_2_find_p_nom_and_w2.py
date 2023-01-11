@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # Find the residuals
     list_R = unc_bound.residuals(P_nom, plant_list)
     # print(list_R[0])
-    w_shared = np.arange(0.01, 1000.0, 0.01)
+    w_shared = unc_bound.generate_std_frequency_array()
     list_mag_abs = np.vstack([control.bode(residual, w_shared, plot=False)[0] for residual in list_R])
     list_mag_dB = 20 * np.log10(list_mag_abs)
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         # Find max amplitude of residuals at all frequencies
         mag_dB_max, mag_abs_max = unc_bound.residual_max_mag(list_R, w_shared)
         # Compute optimal bound
-        x_opt, f_opt, flast, xlast = unc_bound.run_optimization(
+        x_opt, f_opt, f_hist, x_hist = unc_bound.run_optimization(
             x0,
             lb,
             ub,
