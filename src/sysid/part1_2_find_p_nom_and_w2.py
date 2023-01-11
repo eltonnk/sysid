@@ -95,17 +95,17 @@ if __name__ == '__main__':
 
     # Initial bound coeffs
     kappa = 10**(-9/20)
-    x0 = np.array([3e-1     , 0.9    , 7.5e1    , 1.1    , 8e-1     , 0.9    , 7.2e0    , 1.1    , kappa           ])
+    x0 = np.array([3e-1     , 0.9    , 1.1e2    , 1.1    , 8e-1     , 0.9    , 6.5e0    , 1.1    , kappa           ])
     # Optimization algo params
-    lb = np.array([3e-1-5e-1, 0.9-0.3, 7.5e1-5e1, 1.1-0.3, 8e-1-5e-1, 0.9-0.3, 7.2e0-5e0, 1.1-0.3, kappa-3**(-9/20)])
-    ub = np.array([3e-1+5e-1, 0.9+0.3, 7.5e1+5e1, 1.1+0.3, 8e-1+5e-1, 0.9+0.3, 7.2e0+5e0, 1.1+0.3, kappa+3**(-9/20)])
+    lb = np.array([x0[0]/100, x0[1]-0.3, x0[2]/100, x0[3]-0.3, x0[4]/100, x0[5]-0.3, x0[6]/100, x0[7]-0.3, kappa-3**(-9/20)])
+    ub = np.array([x0[0]*100, x0[1]+0.3, x0[2]*100, x0[3]+0.3, x0[4]*100, x0[5]+0.3, x0[6]*100, x0[7]+0.3, kappa+3**(-9/20)])
     max_iter = 100000
 
     if calc_optim:
         # Find max amplitude of residuals at all frequencies
         mag_dB_max, mag_abs_max = unc_bound.residual_max_mag(list_R, w_shared)
         # Compute optimal bound
-        x_opt, f_opt, objhist, xlast = unc_bound.run_optimization(
+        x_opt, f_opt, flast, xlast = unc_bound.run_optimization(
             x0,
             lb,
             ub,

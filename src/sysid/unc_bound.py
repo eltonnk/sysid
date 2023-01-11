@@ -157,13 +157,17 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
 
     Returns
     -------
-    Tuple[np.ndarray, float, List[float], np.ndarray]
+    Tuple[np.ndarray, float, List[float], List[np.ndarray]]
         Optimization results. Specifically, optimal design variables, optimal
         objective value, objective function history, and previous iteration's
         design variables.
     """
-    # To keep track of objective function history.
-    objhist = []
+    # To keep track of design variable history
+    xlast = []
+    # To keep track of objective function history
+    flast = []
+    # To keep track of constraint function history
+    glast = []
 
     def objcon(x):
         """Return both the objective function and constraint.
@@ -171,20 +175,9 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
         Also tracks history of objective function through global variable
         ``objhist``.
         """
-        # Nonlocal needed becuase the variable is being modified.
-        nonlocal objhist
         # Call the function structure that will output mass and stress.
         f, g = _obj_and_constraints(x, params, constraint_params)
-        # Append objective history.
-        objhist.append(f)
         return f, g
-
-    # To keep track of design variable history
-    xlast = []
-    # To keep track of objective function history
-    flast = []
-    # To keep track of constraint function history
-    glast = []
 
     def obj(x):
         """Compute objective function to be passed to the optimizer.
@@ -197,13 +190,17 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
         """
         # Use these functions from the outer scope. The nonlocal needed becuase
         # xlast, flast, and glast are being *updated*.
-        nonlocal xlast, flast, glast
+        nonlocal xlast, flast
         # If x and xlast are not the same, update x, the objective function,
         # and constraint.
         if not np.array_equal(x, xlast):
-            flast, glast = objcon(x)
-            xlast = x
-        return flast
+            f, g = objcon(x)
+            # Append objective history.
+            flast.append(f)
+
+            # Append design variable history  (not done again in con so we don't add it twice)
+            xlast.append(x)
+        return flast[-1]
 
     def con(x):
         """Compute constraint function to be passed to the optimizer.
@@ -216,13 +213,14 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
         """
         # Use these functions from the outer scope. The nonlocal needed becuase
         # xlast, flast, and glast are being *updated*.
-        nonlocal xlast, flast, glast
+        nonlocal xlast, glast
         # If x and xlast are not the same, update x, the objective function,
         # and constraint.
         if not np.array_equal(x, xlast):
-            flast, glast = objcon(x)
-            xlast = x
-        return glast
+            f, g = objcon(x)
+            # Append constraint function history.
+            glast.append(g)
+        return glast[-1]
 
     # Set up optimization problem with ``scipy.optimize``
 
@@ -250,7 +248,7 @@ def run_optimization(x0, lb, ub, max_iter, params, constraint_params):
     print('x =', res.x)
     print('f(x) =', res.fun)
     print('success =', res.success)
-    return res.x, res.fun, objhist, xlast
+    return res.x, res.fun, flast, xlast
 
 
 def _obj_and_constraints(x, params, constraint_params):
