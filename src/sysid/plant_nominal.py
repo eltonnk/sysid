@@ -169,7 +169,8 @@ def finish_magnitude_plots(fig:Figure, ax:Axes):
 
 def plot_nom_vs_all(P_nom: control.TransferFunction, plant_list: list[control.TransferFunction]):
     # Plot nominal plant vs all other plants
-    fig, ax, w_shared = setup_magnitude_plots()
+    w_shared = generate_std_frequency_array()
+    fig, ax = setup_magnitude_plots()
     add_list_plant_to_mag_plot(w_shared, ax, plant_list)
     add_single_plant_to_mag_plot(w_shared, ax, P_nom, f'P_nom', f'black')
     finish_magnitude_plots(fig, ax)
