@@ -285,7 +285,7 @@ def _obj_and_constraints(x, params, constraint_params):
     e = mag_abs_W2 - mag_abs_max
 
     # Compute the objective function.
-    f = sum(e**2)
+    f = np.sum(e**2)
 
     # Compute the inequality constraitns.
     # constraints in form "constraint >= 0"
