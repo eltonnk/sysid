@@ -566,6 +566,7 @@ class PlantGraphData:
         for a in np.ravel(ax):
             a.set_xlabel(r'$t$ (s)')
             a.legend(loc='upper right')
+        fig.suptitle(name)
         fig.tight_layout()
 
         path_name = 'plant_test_plots'
