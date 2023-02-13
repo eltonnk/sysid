@@ -113,10 +113,7 @@ class SensorData:
             a.set_xlabel(r'$t$ (s)')
             a.legend(loc='upper right')
         fig.tight_layout()
-        # This ell variable will allow you to save a plot with the number ell in the plot name
-        ell = 1
-        fig.savefig('test_plot_%s.pdf' % ell)
-
+        
 # Plant id-ing
 
 # Generate plant training data and params before training

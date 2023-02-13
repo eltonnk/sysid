@@ -1,6 +1,8 @@
 import pytest
 import control
+import numpy as np
 from sysid import plant_util as util
+from sysid import d2c
 
 def test_tf_encoder_decoder():
     s: control.TransferFunction = control.tf('s')
@@ -12,3 +14,117 @@ def test_tf_encoder_decoder():
     tf_post = util.tf_decoder(str_test)
 
     assert(tf_test.__repr__() == tf_post.__repr__()) # best we can do since __eq__() is not implented in control
+
+def test_correct_plant_deduced():
+    s: control.TransferFunction = control.tf('s')
+
+    # System used as an example is a brushed DC motor
+
+    K = 1.25
+    L = 0.02
+    R = 0.5
+    J = 0.1
+    b = 1
+    H_elec = K / (L*s + R)
+    H_mech = 1 / (J*s + b)
+    K_emf =  1.25
+
+    input_to_torque_tf = control.feedback(H_elec, H_mech*K_emf)
+
+    _actuatorMaxTorque = 2
+
+    # Generate input signal (PRBS)
+    id_seq_lenght=20.0
+    one_bit_period=0.05
+    _CTRL_PERIOD = 200
+    _samplingPeriod = _CTRL_PERIOD * 1e-6
+
+    N = int((1/_samplingPeriod)*id_seq_lenght)
+    oneBitN = int((1/_samplingPeriod)*one_bit_period)
+
+    n = 0
+    outputMem = 0.0
+
+    start = 2
+    a = start
+    newbit = 0
+
+    prbs = np.zeros((N,))
+    t_step = np.zeros((N,))
+    t_now = 0
+    for n in range(N):
+        if n % oneBitN == 0 :
+            newbit = (((a >> 6) ^ (a >> 5)) & 1)
+            a = ((a << 1) | newbit) & 0x7f
+            outputMem = ((2.0 * newbit) - 1.0) * _actuatorMaxTorque
+        prbs[n] = outputMem
+        t_step[n] = t_now
+        t_now += _samplingPeriod
+
+
+    dt = _samplingPeriod
+    x0 = np.array([0, 0]) # 2 states since 2nd order denominator for input_to_torque_tf
+ 
+    result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf, T=t_step,U=prbs, X0=x0)
+
+    t_cl = result_step.time
+    t_cl = t_cl - t_cl[0]
+    N = t_cl.shape[0]
+    delta_t = t_cl[1:]-t_cl[:-1]
+    T = np.mean(delta_t) # might not have very stable timestep, better to average
+    T_var = np.var(delta_t)
+    sensor_data = util.SensorData(
+        N=N, 
+        T=T,
+        T_var=T_var, 
+        t=t_cl, 
+        r=result_step.inputs, 
+        u=result_step.inputs, 
+        y=result_step.outputs
+    )
+
+    # Uncomment code below to visualize step response result
+    sensor_data.plot()
+    import matplotlib.pyplot as plt
+    
+
+    design_outcome = util.PlantDesignOutcome('test_plant')
+
+    input_to_torque_tf_discrete: control.TransferFunction = control.c2d(input_to_torque_tf, Ts=dt)
+
+    design_params = util.PlantDesignParams(
+        num_order=len(input_to_torque_tf_discrete.num[0][0])-1,
+        denum_order=len(input_to_torque_tf_discrete.den[0][0])-1,
+        better_cond_method=util.NORMALIZING,
+        regularization=0.0,
+        sensor_data_column_names=None,
+    )
+    design_outcome.id_plant(sensor_data, design_params)
+
+    input_to_torque_tf_recreated = design_outcome.plant.delta_y_over_delta_u_c
+
+    result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf_recreated, T=t_step,U=prbs, X0=x0)
+
+    t_cl = result_step.time
+    t_cl = t_cl - t_cl[0]
+    N = t_cl.shape[0]
+    delta_t = t_cl[1:]-t_cl[:-1]
+    T = np.mean(delta_t) # might not have very stable timestep, better to average
+    T_var = np.var(delta_t)
+    sensor_data = util.SensorData(
+        N=N, 
+        T=T,
+        T_var=T_var, 
+        t=t_cl, 
+        r=result_step.inputs, 
+        u=result_step.inputs, 
+        y=result_step.outputs
+    )
+
+    sensor_data.plot()
+    plt.show()
+
+    print(input_to_torque_tf.__repr__())
+    print(input_to_torque_tf_recreated.__repr__())
+
+test_correct_plant_deduced()
