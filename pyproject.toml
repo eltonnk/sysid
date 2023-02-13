@@ -30,3 +30,8 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/eltonnk/sysid"
 "Bug Tracker" = "https://github.com/eltonnk/sysid/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
