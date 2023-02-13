@@ -2,3 +2,5 @@ __pycache__
 env/
 custom_wheels/
 plant_test_plots/
+.vscode/
+.pytest_cache/

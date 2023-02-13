@@ -330,15 +330,7 @@ def tf_encoder(t: control.TransferFunction) -> str:
     str
         Serialized, json valid, string
     """
-    return (
-        (t.num[0][0].__str__() + '|' + t.den[0][0].__str__())
-        .replace('[ ', '[')
-        .replace(' ', ',')
-        .replace('\n', '')
-        .replace(',,', ',')
-        .replace('[,', '[')
-        .replace(',]', ']')
-    )
+    return t.__repr__()
 
 def tf_decoder(s_t: str) -> control.TransferFunction:
     """This function is used to deserialize a string that contains all the
@@ -363,14 +355,8 @@ def tf_decoder(s_t: str) -> control.TransferFunction:
         this function is not a string that can be interpreted as such, this 
         function will raise an error.
     """
-    split = s_t.split("|")
-    s_num = split[0]
-    s_den = split[1]
-    num = eval(s_num) # The horror :O
-    den = eval(s_den)
-    if not isinstance(num, list) or not isinstance(den, list) :
-        raise TypeError('Decoded string was not list, might not be transfer function numerator or denominator')
-    return control.tf(num, den)
+    
+    return eval(s_t.replace('TransferFunction', 'control.TransferFunction').replace('array', 'np.array'))
 
 @dataclass_json
 @dataclass
