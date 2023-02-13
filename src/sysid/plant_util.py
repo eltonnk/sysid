@@ -97,6 +97,23 @@ class SensorData:
     u: np.ndarray
     y: np.ndarray
 
+    @classmethod
+    def from_timeseries(cls, t:np.ndaraay, r: np.ndarray, u: np.ndarray,  y:np.ndarray) -> SensorData:
+        t = t - t[0]
+        N = t.shape[0]
+        delta_t = t[1:]-t[:-1]
+        T = np.mean(delta_t) # might not have very stable timestep, better to average
+        T_var = np.var(delta_t)
+        return cls(
+            N, 
+            T,
+            T_var, 
+            t, 
+            r, 
+            u, 
+            y,
+        )
+
     def plot(self):
         """Can be used to display the r, u and y timeseries contained in a 
         SensorData class.
@@ -900,21 +917,14 @@ class PlantProcessMaterial:
     def load_sensor_data(self, file_path: pathlib.Path) -> SensorData:
         df_raw = pd.read_csv(file_path)
 
-        t = np.array(df_raw[self.design_params.sensor_data_column_names['t']])
-        t = t - t[0]
-        N = t.shape[0]
-        delta_t = t[1:]-t[:-1]
-        T = np.mean(delta_t) # might not have very stable timestep, better to average
-        T_var = np.var(delta_t)
-        return SensorData(
-            N, 
-            T,
-            T_var, 
-            t, 
-            np.array(df_raw[self.design_params.sensor_data_column_names['r']]), 
-            np.array(df_raw[self.design_params.sensor_data_column_names['u']]), 
-            np.array(df_raw[self.design_params.sensor_data_column_names['y']])
+        return SensorData.from_timeseries(
+            t = np.array(df_raw[self.design_params.sensor_data_column_names['t']]),
+            r = np.array(df_raw[self.design_params.sensor_data_column_names['r']]),
+            u = np.array(df_raw[self.design_params.sensor_data_column_names['u']]),
+            y = np.array(df_raw[self.design_params.sensor_data_column_names['y']]),
         )
+
+        
 
     def load_train_test_data(self) -> tuple[SensorData, List[SensorData]]:
         train_sd = self.load_sensor_data(self.train_data_file_path)

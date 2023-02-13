@@ -15,6 +15,9 @@ def test_tf_encoder_decoder():
 
     assert(tf_test.__repr__() == tf_post.__repr__()) # best we can do since __eq__() is not implented in control
 
+
+
+
 def test_correct_plant_deduced():
     s: control.TransferFunction = control.tf('s')
 
@@ -31,11 +34,15 @@ def test_correct_plant_deduced():
 
     input_to_torque_tf = control.feedback(H_elec, H_mech*K_emf)
 
+    a_2 = 1/(input_to_torque_tf.den[0][0][0])
+
+    input_to_torque_tf = control.tf(a_2 * input_to_torque_tf.num[0][0], a_2 * input_to_torque_tf.den[0][0])
+
     _actuatorMaxTorque = 2
 
     # Generate input signal (PRBS)
     id_seq_lenght=20.0
-    one_bit_period=0.05
+    one_bit_period=0.5
     _CTRL_PERIOD = 200
     _samplingPeriod = _CTRL_PERIOD * 1e-6
 
@@ -67,17 +74,8 @@ def test_correct_plant_deduced():
  
     result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf, T=t_step,U=prbs, X0=x0)
 
-    t_cl = result_step.time
-    t_cl = t_cl - t_cl[0]
-    N = t_cl.shape[0]
-    delta_t = t_cl[1:]-t_cl[:-1]
-    T = np.mean(delta_t) # might not have very stable timestep, better to average
-    T_var = np.var(delta_t)
-    sensor_data = util.SensorData(
-        N=N, 
-        T=T,
-        T_var=T_var, 
-        t=t_cl, 
+    sensor_data = util.SensorData.from_timeseries(
+        t = result_step.time, 
         r=result_step.inputs, 
         u=result_step.inputs, 
         y=result_step.outputs
@@ -87,7 +85,6 @@ def test_correct_plant_deduced():
     sensor_data.plot()
     import matplotlib.pyplot as plt
     
-
     design_outcome = util.PlantDesignOutcome('test_plant')
 
     input_to_torque_tf_discrete: control.TransferFunction = control.c2d(input_to_torque_tf, Ts=dt)
@@ -105,22 +102,13 @@ def test_correct_plant_deduced():
 
     result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf_recreated, T=t_step,U=prbs, X0=x0)
 
-    t_cl = result_step.time
-    t_cl = t_cl - t_cl[0]
-    N = t_cl.shape[0]
-    delta_t = t_cl[1:]-t_cl[:-1]
-    T = np.mean(delta_t) # might not have very stable timestep, better to average
-    T_var = np.var(delta_t)
-    sensor_data = util.SensorData(
-        N=N, 
-        T=T,
-        T_var=T_var, 
-        t=t_cl, 
+    sensor_data = util.SensorData.from_timeseries(
+        t = result_step.time, 
         r=result_step.inputs, 
         u=result_step.inputs, 
         y=result_step.outputs
     )
-
+    
     sensor_data.plot()
     plt.show()
 
