@@ -127,8 +127,8 @@ def generate_std_frequency_array() -> np.ndarray:
 
 def setup_magnitude_plots() ->  tuple[Figure, list[Axes]]:
     fig, ax = plt.subplots(2, 1)
-    ax[0].set_ylabel(r'$|R_k(j\omega)|$ (dB)')
-    ax[1].set_ylabel(r'$||R_k(j\omega)|$ (absolute)')
+    ax[0].set_ylabel(r'$|P(j\omega)|$ (dB)')
+    ax[1].set_ylabel(r'$|P(j\omega)|$ (absolute)')
 
     return fig, ax
 
