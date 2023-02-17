@@ -19,7 +19,7 @@ def _tf_equal(tf_original: control.TransferFunction, tf_recreated: control.Trans
 def _basic_tf():
     s: control.TransferFunction = control.tf('s')
 
-    TF_OPTION = 'b'
+    TF_OPTION = 'a'
 
     # System used as an example is a brushed DC motor
     if TF_OPTION == 'a':
@@ -104,7 +104,7 @@ def test_organized_sensor_data():
 def test_correct_plant_deduced(basic_tf):
     DEBUGGING = True
 
-    ID_SEQ_OPTION = 'b'
+    ID_SEQ_OPTION = 'a'
 
     if ID_SEQ_OPTION == 'a':
         # Generate input signal (PRBS)
@@ -197,6 +197,9 @@ def test_correct_plant_deduced(basic_tf):
         )
         design_outcome = util.PlantDesignOutcome('test_plant')
         design_outcome.id_plant(sensor_data_test, design_params)
+
+        if DEBUGGING:
+            print(f'{design_outcome.train_perform.conditioning=}')
 
         temp_basic_tf_recreated = design_outcome.plant.delta_y_over_delta_u_c
 
