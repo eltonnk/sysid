@@ -19,23 +19,34 @@ def _tf_equal(tf_original: control.TransferFunction, tf_recreated: control.Trans
 def _basic_tf():
     s: control.TransferFunction = control.tf('s')
 
+    TF_OPTION = 'b'
+
     # System used as an example is a brushed DC motor
+    if TF_OPTION == 'a':
+        K = 1.25
+        L = 0.02
+        R = 0.5
+        J = 0.1
+        b = 1
+        H_elec = K / (L*s + R)
+        H_mech = 1 / (J*s + b)
+        K_emf =  1.25
 
-    K = 1.25
-    L = 0.02
-    R = 0.5
-    J = 0.1
-    b = 1
-    H_elec = K / (L*s + R)
-    H_mech = 1 / (J*s + b)
-    K_emf =  1.25
+        input_to_torque_tf = control.feedback(H_elec, H_mech*K_emf)
 
-    input_to_torque_tf = control.feedback(H_elec, H_mech*K_emf)
+        a_2 = 1/(input_to_torque_tf.den[0][0][0])
 
-    a_2 = 1/(input_to_torque_tf.den[0][0][0])
+        input_to_torque_tf = control.tf(a_2 * input_to_torque_tf.num[0][0], a_2 * input_to_torque_tf.den[0][0])
+        return input_to_torque_tf
 
-    input_to_torque_tf = control.tf(a_2 * input_to_torque_tf.num[0][0], a_2 * input_to_torque_tf.den[0][0])
-    return input_to_torque_tf
+    elif TF_OPTION == 'b':
+        s = control.tf('s')
+        omega = 10  # rad/s
+        zeta = 0.25
+        tau = 1 / 5
+        Pa = omega ** 2 * (tau * s + 1) / (s ** 2 + 2 * zeta * omega * s + omega ** 2)
+
+        return Pa
 
 @pytest.fixture
 def basic_tf():
@@ -92,41 +103,65 @@ def test_organized_sensor_data():
 
 def test_correct_plant_deduced(basic_tf):
     DEBUGGING = True
-    
-    # Generate input signal (PRBS)
-    actuator_max_torque = 2
-    id_seq_lenght=20.0 # seconds
-    one_bit_period=0.5 # seconds
-    ctrl_period = 20 # microseconds
-    sampling_period = ctrl_period * 1e-6 # seconds
 
-    N = int((1/sampling_period)*id_seq_lenght)
-    one_bit_N = int((1/sampling_period)*one_bit_period)
+    ID_SEQ_OPTION = 'b'
 
-    n = 0
-    output_mem = 0.0
+    if ID_SEQ_OPTION == 'a':
+        # Generate input signal (PRBS)
+        actuator_max_torque = 2
+        id_seq_lenght=20.0 # seconds
+        one_bit_period=0.5 # seconds
+        ctrl_period = 20 # microseconds
+        sampling_period = ctrl_period * 1e-6 # seconds
 
-    start = 2
-    a = start
-    newbit = 0
+        N = int((1/sampling_period)*id_seq_lenght)
+        one_bit_N = int((1/sampling_period)*one_bit_period)
 
-    prbs = np.zeros((N,))
-    t_step = np.zeros((N,))
-    t_now = 0
-    for n in range(N):
-        if n % one_bit_N == 0 :
-            newbit = (((a >> 6) ^ (a >> 5)) & 1)
-            a = ((a << 1) | newbit) & 0x7f
-            output_mem = ((2.0 * newbit) - 1.0) * actuator_max_torque
-        prbs[n] = output_mem
-        t_step[n] = t_now
-        t_now += sampling_period
+        n = 0
+        output_mem = 0.0
+
+        start = 2
+        a = start
+        newbit = 0
+
+        prbs = np.zeros((N,))
+        t_step = np.zeros((N,))
+        t_now = 0
+        for n in range(N):
+            if n % one_bit_N == 0 :
+                newbit = (((a >> 6) ^ (a >> 5)) & 1)
+                a = ((a << 1) | newbit) & 0x7f
+                output_mem = ((2.0 * newbit) - 1.0) * actuator_max_torque
+            prbs[n] = output_mem
+            t_step[n] = t_now
+            t_now += sampling_period
 
 
-    dt = sampling_period
-    x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
- 
-    result_step: control.TimeResponseData = control.forced_response(basic_tf, T=t_step,U=prbs, X0=x0)
+        dt = sampling_period
+        x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
+        basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=dt)
+        result_step: control.TimeResponseData = control.forced_response(basic_tf_discrete, T=t_step,U=prbs, X0=x0)
+
+    elif ID_SEQ_OPTION == 'b':
+        dt = 0.05
+        t_start = 0
+        t_end = 5
+        ta = np.arange(t_start, t_end, dt)
+        N_t = ta.size
+        jump_data = np.array([0.9, -0.1, 0.2, -0.8, 0.6, 0.1, -0.5, -0.25, 0.2, -0.1])
+        N_jumps = jump_data.size
+        ua = [0]
+        for i in range(N_jumps):
+            for j in range(int(N_t / N_jumps)):
+                ua.append(jump_data[i])
+
+        ua = ua[1:]  # remove 0th element
+        ua = np.array(ua)
+
+        basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=dt)
+
+        result_step: control.TimeResponseData  = control.forced_response(basic_tf_discrete, ta, ua)
+
 
     sensor_data_test = util.SensorData.from_timeseries(
         t=result_step.time, 
@@ -141,10 +176,11 @@ def test_correct_plant_deduced(basic_tf):
     
     design_outcome = util.PlantDesignOutcome('test_plant')
 
-    basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=dt)
+    
     num_order_discrete = len(basic_tf_discrete.num[0][0])-1
     denum_order_discrete = len(basic_tf_discrete.den[0][0])-1
-    reg_arr = util.build_regularization_array(-6, -3, 1.1, 30)
+    #reg_arr = util.build_regularization_array(-6, -3, 1.1, 30)
+    reg_arr = [0]
 
     VAFs = []
     basic_tf_recreated = None
@@ -196,4 +232,4 @@ def test_correct_plant_deduced(basic_tf):
 
     assert(max(VAFs) >= 95 and _tf_equal(basic_tf, basic_tf_recreated))
 
-# test_correct_plant_deduced(_basic_tf())
+test_correct_plant_deduced(_basic_tf())
