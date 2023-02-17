@@ -71,15 +71,22 @@ if __name__ == '__main__':
     if try_all:
         # Here we train over a range of parameters, determined by 
         # build_regularization_array and the 'plants_to_train.json' file
+
         graph_data_cmds = util.PlantGraphDataCommands()
         # Build array of possible regularization values 
         regs = util.build_regularization_array(-2, 0, 1.1, 30)
         # Let's build a list of different training/testing scenarios to be executed on different processes
         pmg = util.PlantPMGTryAll(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, regs)
     else:
-        # Here we train only using certain parameters we have found to be optimal before
+        # Here we train only using certain parameters we have found to be optimal 
+        # when looking at results obtained when using PlantPMGTryAll
+        # This is done for example to visualize some underlying computations, but only for the
+        # plants that best recreate data found in DATA_PATH
+
         # Change save_graph to True to better visualize if optimal trained plants can recreate output signals from input
         graph_data_cmds = util.PlantGraphDataCommands(save_graph=True, show=False)
+
+        # Select file in which to save these optimal parameters
         result_names_file_path = MAIN_FILE_PATH / f'good_plants/{VERSION}/good_plants_{VERSION}.txt'
         # Let's recreate a list of good training/testing scenarios to be executed (again) on different processes
         pmg = util.PlantPMGTrySelection(DATA_PATH, graph_data_cmds, TRAINING_PLAN_PATH, result_names_file_path)

@@ -427,7 +427,7 @@ class PlantOrganizedSensorData:
 
     def __init__(self, s_data: SensorData, params: PlantDesignParams):
         self.bcm = params.better_cond_method
-        if not self.bcm == NORMALIZING and not self.bcm == STANDARDIZING:
+        if (not self.bcm == NORMALIZING and not self.bcm == STANDARDIZING) and self.bcm:
             raise ValueError('Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
         self.reg = params.regularization
 
@@ -442,22 +442,24 @@ class PlantOrganizedSensorData:
 
         # Find how many datapoints need to be removed from length of u and y vector to set number of rows to A matrix
         lim = max(nbr_alp, nbr_bet)
+        uk = u[::-1]
+        yk = y[::-1]
 
         # We do this to imrpove conditionning
         if self.bcm == NORMALIZING:
             # Normalize Data
             self.u_stat = PlantTimeseriesStats(u, True)
             self.y_stat = PlantTimeseriesStats(y, True)
-            uk = u[::-1] / self.u_stat.maximum
-            yk = y[::-1] / self.y_stat.maximum
+            uk = uk / self.u_stat.maximum
+            yk = yk / self.y_stat.maximum
         
         if self.bcm == STANDARDIZING:
             # Standardize data
             self.u_stat = PlantTimeseriesStats(u, False)
             self.y_stat = PlantTimeseriesStats(y, False)
 
-            uk = (u[::-1] - self.u_stat.mean)/self.u_stat.std_dev
-            yk = (y[::-1] - self.y_stat.mean)/self.y_stat.std_dev
+            uk = (uk - self.u_stat.mean)/self.u_stat.std_dev
+            yk = (yk - self.y_stat.mean)/self.y_stat.std_dev
 
         self.b = yk[:-lim].reshape(-1, 1)
         self.A = np.zeros((self.N - lim, nbr_alp+nbr_bet))
@@ -477,8 +479,8 @@ class PlantOrganizedSensorData:
         self.n = nbr_alp
         self.m = nbr_bet-1
 
-        size_I = self.A.shape[1]
-        self.ATA = self.A.T @ self.A + self.reg*self.reg*np.eye(size_I)
+        
+        self.ATA = self.A.T @ self.A
         # print(ATA)
 
 @dataclass
@@ -488,7 +490,8 @@ class PlantOrganizedIDProblem(PlantOrganizedSensorData):
         PlantOrganizedSensorData.__init__(self, s_data, params)
 
     def train_x(self):
-        self.x =  np.linalg.solve(self.ATA, self.A.T @ self.b)
+        size_I = self.A.shape[1]
+        self.x =  np.linalg.solve(self.ATA + self.reg*self.reg*np.eye(size_I), self.A.T @ self.b)
         # print(f'x={x}')
 
     def find_c_plant_from_x(self) -> Plant:
@@ -636,7 +639,7 @@ class PlantPerformance:
         Ax_flat = np.reshape(p.A @ p.x, newshape=(p.A.shape[0],))
         b_flat = np.reshape(p.b, newshape=(p.b.shape[0],))
         bmAx = b_flat - Ax_flat
-        bmAx_2norm_squared = np.linalg.norm(bmAx) ** 2 + (p.reg * np.linalg.norm(p.x)) ** 2
+        bmAx_2norm_squared = np.linalg.norm(bmAx) ** 2
         self.sigma =  (1 / (p.N - (p.n + p.m + 1))) * bmAx_2norm_squared * np.linalg.inv((p.ATA))
         self.relative_uncertainty = np.divide(np.sqrt(np.diag(self.sigma).reshape(-1,1)), np.abs(p.x)) * 100
 
@@ -705,13 +708,13 @@ class PlantTestingPerformance(PlantPerformance):
         raise TypeError("Cannot compute conditioning during testing or validation. If you wan to compute the conditioning of a matrix A computer using training data, please use the generic PlantPerformance constructor.")
 
     def compute_testing_performance(self, s_data_testing: SensorData, plant_from_training: Plant) -> PlantGraphData:
-        if s_data_testing.T_var:
+        if s_data_testing.T_var > 0.0000001:
             t_end = s_data_testing.t[-1]
             
             intfu = interp1d(s_data_testing.t, s_data_testing.u)
             intfy = interp1d(s_data_testing.t, s_data_testing.y)
 
-            s_data_testing.t = np.arange(0, t_end, s_data_testing.T)
+            s_data_testing.t = np.arange(0, t_end+s_data_testing.T, s_data_testing.T)
 
             s_data_testing.u = intfu(s_data_testing.t)
             s_data_testing.y = intfy(s_data_testing.t)
