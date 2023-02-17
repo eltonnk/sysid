@@ -196,4 +196,4 @@ def test_correct_plant_deduced(basic_tf):
 
     assert(max(VAFs) >= 95 and _tf_equal(basic_tf, basic_tf_recreated))
 
-test_correct_plant_deduced(_basic_tf())
+# test_correct_plant_deduced(_basic_tf())
