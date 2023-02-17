@@ -4,21 +4,19 @@ import numpy as np
 from sysid import plant_util as util
 from sysid import d2c
 
-def test_tf_encoder_decoder():
-    s: control.TransferFunction = control.tf('s')
+def _tf_equal(tf_original: control.TransferFunction, tf_recreated: control.TransferFunction):
+    # See if they look similar
+    is_equal = tf_original.__repr__() == tf_recreated.__repr__()
+    if is_equal: # If they do, we have the same tf
+        return is_equal
+    # If they aren't identical, look to see if the relative difference in coeffs is less than a percent
+    is_equal = True 
+    for n_o, n_r, d_o, d_r in zip (tf_original.num[0][0], tf_recreated.num[0][0], tf_original.den[0][0], tf_recreated.den[0][0]):
+        is_equal = True if abs(n_o - n_r) / n_o <= 0.01 else False
+        is_equal = True if abs(d_o - d_r) / d_o <= 0.01 else False
+    return is_equal
 
-    tf_test: control.TransferFunction = (-5.62482204e+00*s**2 + 2.36710609e+02*s + 6.21409713e+04) / (1.00000000e+00*s**3 + 1.17973211e+02*s**2 + 5.05870774e+04*s + 1.19886590e+04)
-    
-    str_test = util.tf_encoder(tf_test)
-
-    tf_post = util.tf_decoder(str_test)
-
-    assert(tf_test.__repr__() == tf_post.__repr__()) # best we can do since __eq__() is not implented in control
-
-
-
-
-def test_correct_plant_deduced():
+def _basic_tf():
     s: control.TransferFunction = control.tf('s')
 
     # System used as an example is a brushed DC motor
@@ -37,20 +35,76 @@ def test_correct_plant_deduced():
     a_2 = 1/(input_to_torque_tf.den[0][0][0])
 
     input_to_torque_tf = control.tf(a_2 * input_to_torque_tf.num[0][0], a_2 * input_to_torque_tf.den[0][0])
+    return input_to_torque_tf
 
-    _actuatorMaxTorque = 2
+@pytest.fixture
+def basic_tf():
+    return _basic_tf()
 
+def test_tf_encoder_decoder(basic_tf):
+    str_test = util.tf_encoder(basic_tf)
+    basic_tf_recreated = util.tf_decoder(str_test)
+
+    assert(_tf_equal(basic_tf, basic_tf_recreated)) # best we can do since __eq__() is not implented in control
+
+
+def test_cd2_d2c(basic_tf):
+    dt = 0.0001
+    basic_tf_discrete = control.c2d(basic_tf, Ts=dt)
+    basic_tf_recreated = d2c.d2c(basic_tf_discrete)
+
+    assert(_tf_equal(basic_tf, basic_tf_recreated))
+
+
+
+def test_organized_sensor_data():
+    #           u0 u1 u2 u3 u4
+    u=np.array([0, 1, 2, 3, 4])
+    #           y0 y1 y2 y3 y4
+    y=np.array([5, 6, 7, 8, 9])
+    sensor_data_test = util.SensorData.from_timeseries(
+        t=np.array([0, 0.02, 0.04, 0.06, 0.08]), 
+        r=np.array([0, 0, 0, 0, 0]),
+        u=u,
+        y=y,
+    )
+    design_params = util.PlantDesignParams(
+        num_order=1,
+        denum_order=2,
+        better_cond_method=None,
+        regularization=0.0,
+        sensor_data_column_names=None,
+    )
+    
+    organized_data = util.PlantOrganizedSensorData(sensor_data_test, design_params)
+
+    assert((organized_data.b == np.array([
+        [y[4]],
+        [y[3]],
+        [y[2]],
+    ])).all())
+
+    assert((organized_data.A == np.array([
+        [-y[3], -y[2], u[3], u[2]],
+        [-y[2], -y[1], u[2], u[1]],
+        [-y[1], -y[0], u[1], u[0]],
+    ])).all())
+
+def test_correct_plant_deduced(basic_tf):
+    DEBUGGING = True
+    
     # Generate input signal (PRBS)
-    id_seq_lenght=20.0
-    one_bit_period=0.5
-    _CTRL_PERIOD = 200
-    _samplingPeriod = _CTRL_PERIOD * 1e-6
+    actuator_max_torque = 2
+    id_seq_lenght=20.0 # seconds
+    one_bit_period=0.5 # seconds
+    ctrl_period = 20 # microseconds
+    sampling_period = ctrl_period * 1e-6 # seconds
 
-    N = int((1/_samplingPeriod)*id_seq_lenght)
-    oneBitN = int((1/_samplingPeriod)*one_bit_period)
+    N = int((1/sampling_period)*id_seq_lenght)
+    one_bit_N = int((1/sampling_period)*one_bit_period)
 
     n = 0
-    outputMem = 0.0
+    output_mem = 0.0
 
     start = 2
     a = start
@@ -60,59 +114,86 @@ def test_correct_plant_deduced():
     t_step = np.zeros((N,))
     t_now = 0
     for n in range(N):
-        if n % oneBitN == 0 :
+        if n % one_bit_N == 0 :
             newbit = (((a >> 6) ^ (a >> 5)) & 1)
             a = ((a << 1) | newbit) & 0x7f
-            outputMem = ((2.0 * newbit) - 1.0) * _actuatorMaxTorque
-        prbs[n] = outputMem
+            output_mem = ((2.0 * newbit) - 1.0) * actuator_max_torque
+        prbs[n] = output_mem
         t_step[n] = t_now
-        t_now += _samplingPeriod
+        t_now += sampling_period
 
 
-    dt = _samplingPeriod
-    x0 = np.array([0, 0]) # 2 states since 2nd order denominator for input_to_torque_tf
+    dt = sampling_period
+    x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
  
-    result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf, T=t_step,U=prbs, X0=x0)
+    result_step: control.TimeResponseData = control.forced_response(basic_tf, T=t_step,U=prbs, X0=x0)
 
-    sensor_data = util.SensorData.from_timeseries(
-        t = result_step.time, 
+    sensor_data_test = util.SensorData.from_timeseries(
+        t=result_step.time, 
         r=result_step.inputs, 
         u=result_step.inputs, 
         y=result_step.outputs
     )
 
-    # Uncomment code below to visualize step response result
-    sensor_data.plot()
-    import matplotlib.pyplot as plt
+    if DEBUGGING:
+        sensor_data_test.plot()
+    
     
     design_outcome = util.PlantDesignOutcome('test_plant')
 
-    input_to_torque_tf_discrete: control.TransferFunction = control.c2d(input_to_torque_tf, Ts=dt)
+    basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=dt)
+    num_order_discrete = len(basic_tf_discrete.num[0][0])-1
+    denum_order_discrete = len(basic_tf_discrete.den[0][0])-1
+    reg_arr = util.build_regularization_array(-6, -3, 1.1, 30)
 
-    design_params = util.PlantDesignParams(
-        num_order=len(input_to_torque_tf_discrete.num[0][0])-1,
-        denum_order=len(input_to_torque_tf_discrete.den[0][0])-1,
-        better_cond_method=util.NORMALIZING,
-        regularization=0.0,
-        sensor_data_column_names=None,
-    )
-    design_outcome.id_plant(sensor_data, design_params)
+    VAFs = []
+    basic_tf_recreated = None
+    if DEBUGGING:
+        graph_data = None
 
-    input_to_torque_tf_recreated = design_outcome.plant.delta_y_over_delta_u_c
+    for reg in reg_arr:
+        design_params = util.PlantDesignParams(
+            num_order=num_order_discrete,
+            denum_order=denum_order_discrete,
+            better_cond_method=util.NORMALIZING,
+            regularization=reg,
+            sensor_data_column_names=None,
+        )
+        design_outcome = util.PlantDesignOutcome('test_plant')
+        design_outcome.id_plant(sensor_data_test, design_params)
 
-    result_step: control.TimeResponseData = control.forced_response(input_to_torque_tf_recreated, T=t_step,U=prbs, X0=x0)
+        temp_basic_tf_recreated = design_outcome.plant.delta_y_over_delta_u_c
 
-    sensor_data = util.SensorData.from_timeseries(
-        t = result_step.time, 
-        r=result_step.inputs, 
-        u=result_step.inputs, 
-        y=result_step.outputs
-    )
-    
-    sensor_data.plot()
-    plt.show()
+        test_perf = util.PlantTestingPerformance()
 
-    print(input_to_torque_tf.__repr__())
-    print(input_to_torque_tf_recreated.__repr__())
+        temp_graph_data: util.PlantGraphData = test_perf.compute_testing_performance(sensor_data_test, design_outcome.plant)
+        
+        VAFs.append(test_perf.VAF)
 
-test_correct_plant_deduced()
+        if test_perf.VAF == max(VAFs):
+            basic_tf_recreated = temp_basic_tf_recreated
+            if DEBUGGING:
+                graph_data = temp_graph_data
+
+        # result_step_recreated: control.TimeResponseData = control.forced_response(input_to_torque_tf_recreated, T=t_step,U=prbs, X0=x0)
+
+        # sensor_data_recreated = util.SensorData.from_timeseries(
+        #     t = result_step_recreated.time, 
+        #     r=result_step_recreated.inputs, 
+        #     u=result_step_recreated.inputs, 
+        #     y=result_step_recreated.outputs
+        # )
+        del design_outcome
+        
+    if DEBUGGING:
+        if graph_data:
+            graph_data._show_data(util.PlantGraphDataCommands(show=True), name="Test Graph")
+
+        print(basic_tf.__repr__())
+        if basic_tf_recreated:
+            print(basic_tf_recreated.__repr__())
+        print(list(zip(reg_arr, VAFs)))
+
+    assert(max(VAFs) >= 95 and _tf_equal(basic_tf, basic_tf_recreated))
+
+test_correct_plant_deduced(_basic_tf())
