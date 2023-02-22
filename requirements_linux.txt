@@ -1,0 +1,8 @@
+numpy
+scipy
+control
+slycot
+scikit-learn
+dataclasses-json
+pandas
+pytest
