@@ -19,7 +19,7 @@ def _tf_equal(tf_original: control.TransferFunction, tf_recreated: control.Trans
 def _basic_tf():
     s: control.TransferFunction = control.tf('s')
 
-    TF_OPTION = 'a'
+    TF_OPTION = 'b'
 
     # System used as an example is a brushed DC motor
     if TF_OPTION == 'a':
@@ -101,18 +101,41 @@ def test_organized_sensor_data():
         [-y[1], -y[0], u[1], u[0]],
     ])).all())
 
+def _lchirp(N, tmin=0, tmax=1, fmin=0, fmax=None):
+    fmax = fmax if fmax is not None else N / 2
+    t = np.linspace(tmin, tmax, N, endpoint=True)
+
+    a = (fmin - fmax) / (tmin - tmax)
+    b = (fmin*tmax - fmax*tmin) / (tmax - tmin)
+
+    phi = (a/2)*(t**2 - tmin**2) + b*(t - tmin)
+    phi *= (2*np.pi)
+    return phi
+
+def lchirp(N, tmin=0, tmax=1, fmin=0, fmax=None, zero_phase_tmin=True, cos=True):
+    phi = _lchirp(N, tmin, tmax, fmin, fmax)
+    if zero_phase_tmin:
+        phi *= ( (phi[-1] - phi[-1] % (2*np.pi)) / phi[-1] )
+    else:
+        phi -= (phi[-1] % (2*np.pi))
+    fn = np.cos if cos else np.sin
+    return fn(phi)
+
+
 def test_correct_plant_deduced(basic_tf):
     DEBUGGING = True
 
-    ID_SEQ_OPTION = 'a'
+    ID_SEQ_OPTION = 'b'
 
     if ID_SEQ_OPTION == 'a':
         # Generate input signal (PRBS)
-        actuator_max_torque = 2
+        actuator_max_torque = 0.5
         id_seq_lenght=20.0 # seconds
-        one_bit_period=0.5 # seconds
-        ctrl_period = 20 # microseconds
+        
+        ctrl_period = 200 # microseconds
         sampling_period = ctrl_period * 1e-6 # seconds
+
+        one_bit_period= 10 *  sampling_period
 
         N = int((1/sampling_period)*id_seq_lenght)
         one_bit_N = int((1/sampling_period)*one_bit_period)
@@ -159,9 +182,63 @@ def test_correct_plant_deduced(basic_tf):
         ua = np.array(ua)
 
         basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=dt)
+        x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
+        result_step: control.TimeResponseData  = control.forced_response(basic_tf_discrete, T=ta, U=ua, X0=x0)
+    
+    elif ID_SEQ_OPTION == 'c':
+        #chirp
+        actuator_max_torque = 0.5
+        sampling_period = 2e-5
+        data_collection_timespan = 25 # seconds
+        delta_t = sampling_period # seconds ( corresponds to approximate transmission frequency)
 
-        result_step: control.TimeResponseData  = control.forced_response(basic_tf_discrete, ta, ua)
 
+        # This time_signal is fake in the fact that we don't know 
+        # how fast the Inverse3 will process the commands
+
+        time_signal = np.arange(start=0, step=delta_t, stop=data_collection_timespan)
+        # time_signal = np.linspace(
+        #     0, 
+        #     data_collection_timespan, 
+        #     int(data_collection_timespan/delta_t)
+        # )
+        nbr_chirps = 6
+        v_at_zero_prct = 0.3
+        zero2chirp_split = int(len(time_signal)/(nbr_chirps*20))
+        single_sg_split = int(len(time_signal)/(nbr_chirps))
+
+
+        vzero_sg = np.zeros(zero2chirp_split)
+        single_chirp_timespan = data_collection_timespan*(1/nbr_chirps)*(1- v_at_zero_prct)
+        single_chirp_nbr_points = single_sg_split - zero2chirp_split
+
+        start_freq = 0.01
+        end_freq = 1000
+
+        # from https://dsp.stackexchange.com/questions/75282/end-of-chirp-in-phase-0
+
+        vchirp_sg = actuator_max_torque*lchirp(
+            N=single_chirp_nbr_points, 
+            tmin=0, 
+            tmax=single_chirp_timespan, 
+            fmin=start_freq, 
+            fmax=end_freq, 
+            zero_phase_tmin=True, 
+            cos=False
+        )
+
+        v_sg_blocks = [vzero_sg, vchirp_sg] * nbr_chirps
+
+
+        voltage_signal = np.block(v_sg_blocks)
+
+        diff_len =  abs(len(time_signal) - len(voltage_signal))
+        if diff_len:
+            voltage_signal = np.concatenate((voltage_signal, np.array([0] * diff_len)))
+
+        basic_tf_discrete: control.TransferFunction = control.c2d(basic_tf, Ts=delta_t)
+        x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
+        result_step: control.TimeResponseData = control.forced_response(basic_tf_discrete, T=time_signal, U=voltage_signal, X0=x0)
 
     sensor_data_test = util.SensorData.from_timeseries(
         t=result_step.time, 
@@ -231,7 +308,7 @@ def test_correct_plant_deduced(basic_tf):
         print(basic_tf.__repr__())
         if basic_tf_recreated:
             print(basic_tf_recreated.__repr__())
-        print(list(zip(reg_arr, VAFs)))
+        print(f'{list(zip(reg_arr, VAFs))=}')
 
     assert(max(VAFs) >= 95 and _tf_equal(basic_tf, basic_tf_recreated))
 
