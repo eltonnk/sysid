@@ -125,7 +125,7 @@ def lchirp(N, tmin=0, tmax=1, fmin=0, fmax=None, zero_phase_tmin=True, cos=True)
 def test_correct_plant_deduced(basic_tf):
     DEBUGGING = True
 
-    ID_SEQ_OPTION = 'b'
+    ID_SEQ_OPTION = 'c'
 
     if ID_SEQ_OPTION == 'a':
         # Generate input signal (PRBS)
@@ -188,7 +188,8 @@ def test_correct_plant_deduced(basic_tf):
     elif ID_SEQ_OPTION == 'c':
         #chirp
         actuator_max_torque = 0.5
-        sampling_period = 2e-5
+        ctrl_period = 200 # microseconds
+        sampling_period = ctrl_period * 1e-6 # seconds
         data_collection_timespan = 25 # seconds
         delta_t = sampling_period # seconds ( corresponds to approximate transmission frequency)
 
