@@ -19,7 +19,7 @@ def _tf_equal(tf_original: control.TransferFunction, tf_recreated: control.Trans
 def _basic_tf():
     s: control.TransferFunction = control.tf('s')
 
-    TF_OPTION = 'b'
+    TF_OPTION = 'a'
 
     # System used as an example is a brushed DC motor
     if TF_OPTION == 'a':
@@ -125,7 +125,9 @@ def lchirp(N, tmin=0, tmax=1, fmin=0, fmax=None, zero_phase_tmin=True, cos=True)
 def test_correct_plant_deduced(basic_tf):
     DEBUGGING = True
 
-    ID_SEQ_OPTION = 'c'
+    ID_SEQ_OPTION = 'a'
+    NOISE_FLAG = 1
+    NOISE_VAR = 0.001
 
     if ID_SEQ_OPTION == 'a':
         # Generate input signal (PRBS)
@@ -241,6 +243,13 @@ def test_correct_plant_deduced(basic_tf):
         x0 = np.array([0, 0]) # 2 states since 2nd order denominator for basic_tf
         result_step: control.TimeResponseData = control.forced_response(basic_tf_discrete, T=time_signal, U=voltage_signal, X0=x0)
 
+    sensor_data_train = util.SensorData.from_timeseries(
+        t=result_step.time, 
+        r=result_step.inputs, 
+        u=result_step.inputs, 
+        y=result_step.outputs + NOISE_FLAG * np.random.normal(0, NOISE_VAR, result_step.outputs.size)
+    )
+
     sensor_data_test = util.SensorData.from_timeseries(
         t=result_step.time, 
         r=result_step.inputs, 
@@ -249,15 +258,14 @@ def test_correct_plant_deduced(basic_tf):
     )
 
     if DEBUGGING:
-        sensor_data_test.plot()
+        sensor_data_train.plot()
     
     
     design_outcome = util.PlantDesignOutcome('test_plant')
 
-    
     num_order_discrete = len(basic_tf_discrete.num[0][0])-1
     denum_order_discrete = len(basic_tf_discrete.den[0][0])-1
-    #reg_arr = util.build_regularization_array(-6, -3, 1.1, 30)
+    # reg_arr = util.build_regularization_array(-6, 0, 1.1, 30)
     reg_arr = [0]
 
     VAFs = []
@@ -274,7 +282,7 @@ def test_correct_plant_deduced(basic_tf):
             sensor_data_column_names=None,
         )
         design_outcome = util.PlantDesignOutcome('test_plant')
-        design_outcome.id_plant(sensor_data_test, design_params)
+        design_outcome.id_plant(sensor_data_train, design_params)
 
         if DEBUGGING:
             print(f'{design_outcome.train_perform.conditioning=}')
@@ -300,7 +308,9 @@ def test_correct_plant_deduced(basic_tf):
         #     u=result_step_recreated.inputs, 
         #     y=result_step_recreated.outputs
         # )
+
         del design_outcome
+        print(f'Done testing out regularizer with value: {reg}')
         
     if DEBUGGING:
         if graph_data:
