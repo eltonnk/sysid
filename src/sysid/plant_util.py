@@ -708,7 +708,7 @@ class PlantTestingPerformance(PlantPerformance):
         raise TypeError("Cannot compute conditioning during testing or validation. If you wan to compute the conditioning of a matrix A computer using training data, please use the generic PlantPerformance constructor.")
 
     def compute_testing_performance(self, s_data_testing: SensorData, plant_from_training: Plant) -> PlantGraphData:
-        if s_data_testing.T_var > 0.0000001:
+        if s_data_testing.T_var != 0.0: # this should only be possible if data if generated using np.arange or np.linspace
             t_end = s_data_testing.t[-1]
             
             intfu = interp1d(s_data_testing.t, s_data_testing.u)
