@@ -121,8 +121,8 @@ def find_nom_plant_with_clust(
     den = np.poly(np.ravel(poles_cluster_centers))
     return control.tf(num, den)
 
-def generate_std_frequency_array() -> np.ndarray:
-    w_shared = np.arange(0.01, 1000.0, 0.01)
+def generate_std_frequency_array(start_freq = 0.01, stop_frequency = 1000.0, step=0.01) -> np.ndarray:
+    w_shared = np.arange(start_freq, stop_frequency, step)
     return w_shared
 
 def setup_magnitude_plots() ->  tuple[Figure, list[Axes]]:
