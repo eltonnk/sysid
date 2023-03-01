@@ -715,8 +715,14 @@ class PlantTestingPerformance(PlantPerformance):
             intfy = interp1d(s_data_testing.t, s_data_testing.y)
 
             s_data_testing.t = np.arange(0, t_end+s_data_testing.T, s_data_testing.T)
-
-            s_data_testing.u = intfu(s_data_testing.t)
+            try:
+                s_data_testing.u = intfu(s_data_testing.t)
+            except ValueError as e: 
+                if str(e) == "A value in x_new is above the interpolation range.":
+                    s_data_testing.t = s_data_testing.t[:-1]
+                    s_data_testing.u = intfu(s_data_testing.t)
+                else:
+                    raise e
             s_data_testing.y = intfy(s_data_testing.t)
 
         delta_u = s_data_testing.u
