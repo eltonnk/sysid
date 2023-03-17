@@ -905,7 +905,7 @@ class PlantDesignResult:
         design_results_dict = self.to_dict()
 
         self._make_parent_folder(file_path)
-        with open(file_path, 'w') as design_results_file:
+        with open(file_path, 'w', encoding='utf-8') as design_results_file:
             design_results_file.write(json.dumps(design_results_dict, indent=4))
 
     def save_plant_list_to_file(self, file_path: pathlib.Path):
