@@ -924,7 +924,7 @@ class PlantProcessMaterial:
     train_test_data_file_paths: List[pathlib.Path]
 
     def load_sensor_data(self, file_path: pathlib.Path) -> SensorData:
-        df_raw = pd.read_csv(file_path)
+        df_raw = pd.read_csv(file_path, encoding = "utf-8")
 
         return SensorData.from_timeseries(
             t = np.array(df_raw[self.design_params.sensor_data_column_names['t']]),
