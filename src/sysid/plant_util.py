@@ -322,7 +322,7 @@ class PlantDesignPlan:
         PlantDesignPlan
             See class docstring above.
         """
-        with open(file_path, 'r') as plant_json_file:
+        with open(file_path, 'r', encoding='utf-8') as plant_json_file:
             plant_json_string = plant_json_file.read()
 
             plant_design_plan = cls.from_json(plant_json_string)
