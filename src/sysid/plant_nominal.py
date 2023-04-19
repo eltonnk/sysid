@@ -66,7 +66,7 @@ def _clusterPoints(all_points: np.ndarray, bandwidth: float, min_nbr_point:float
 
 def plot_poles(plant_list: List[control.TransferFunction], custom_plant_names: list[str] = [], plot_cluster_center: bool = False):
     all_poles_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantPoles)
-    pnbr = len(all_poles_cmplx) / len(plant_list)
+    pnbr = int(len(all_poles_cmplx) / len(plant_list))
 
     all_poles_points = _cmplxNbrsToPoints(all_poles_cmplx)
     print("Poles of all plants: ")
@@ -89,7 +89,7 @@ def plot_poles(plant_list: List[control.TransferFunction], custom_plant_names: l
     
 def plot_zeros(plant_list: List[control.TransferFunction], custom_plant_names: list[str] = [], plot_cluster_center: bool = False):
     all_zeros_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantZeros)
-    znbr = len(all_zeros_cmplx) / len(plant_list)
+    znbr = int(len(all_zeros_cmplx) / len(plant_list))
 
     all_zeros_points = _cmplxNbrsToPoints(all_zeros_cmplx)
     print("Zeros of all plants: ")
