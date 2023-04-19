@@ -22,7 +22,7 @@ if __name__ == '__main__':
     plant_list = util.load_plant_list_from_file('good_plants/v3/plants_trained_v3.json')
     plant_list = [p.delta_y_over_delta_u_c for p in plant_list]
 
-    all_poles_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom.getPlantPoles)
+    all_poles_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom._getPlantPoles)
 
     all_poles_points = fpnom._cmplxNbrsToPoints(all_poles_cmplx)
 
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     fig.tight_layout()
 
 
-    all_zeros_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom.getPlantZeros)
+    all_zeros_cmplx = fpnom._getCmplxArrayFrmPlants(plant_list, fpnom._getPlantZeros)
 
     all_zeros_points = fpnom._cmplxNbrsToPoints(all_zeros_cmplx)
 

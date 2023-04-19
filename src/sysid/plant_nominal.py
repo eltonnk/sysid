@@ -64,6 +64,49 @@ def _clusterPoints(all_points: np.ndarray, bandwidth: float, min_nbr_point:float
     labels = clustering.labels_ #TODO: eliminate some poles/zeros if not enough points
     return clustering.cluster_centers_
 
+def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
+    all_poles_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantPoles)
+
+    all_poles_points = _cmplxNbrsToPoints(all_poles_cmplx)
+    print("Poles of all plants: ")
+    print(all_poles_points)
+
+    if plot_cluster_center:
+        cluster_centers = _clusterPoints(all_poles_points, bandwidth=5)
+        print("Center point of pole clusters:")
+        print(cluster_centers)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(all_poles_points[:, 0], all_poles_points[:, 1], '+')
+    if plot_cluster_center:
+        ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='red')
+    for a in np.ravel(ax):
+        a.grid(visible=True)
+    fig.tight_layout()
+    
+def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
+    all_zeros_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantZeros)
+
+    all_zeros_points = _cmplxNbrsToPoints(all_zeros_cmplx)
+    print("Zeros of all plants: ")
+    print(all_zeros_points)
+
+    if plot_cluster_center:
+        print("Center point of zero clusters:")
+        cluster_centers = _clusterPoints(all_zeros_points, bandwidth=50, min_nbr_point=3)
+        print(cluster_centers)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(all_zeros_points[:, 0], all_zeros_points[:, 1], '+')
+    if plot_cluster_center:
+        ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='red')
+    for a in np.ravel(ax):
+        a.grid(visible=True)
+    fig.tight_layout()
+
+
 def plant_av_method_1(plant_list: List[control.TransferFunction]) -> control.TransferFunction:
     # Method 1
     # Add all plants and divide by number of plants, then simplify order to 4th order
