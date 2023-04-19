@@ -64,8 +64,9 @@ def _clusterPoints(all_points: np.ndarray, bandwidth: float, min_nbr_point:float
     labels = clustering.labels_ #TODO: eliminate some poles/zeros if not enough points
     return clustering.cluster_centers_
 
-def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
+def plot_poles(plant_list: List[control.TransferFunction], custom_plant_names: list[str] = [], plot_cluster_center: bool = False):
     all_poles_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantPoles)
+    pnbr = len(all_poles_cmplx) / len(plant_list)
 
     all_poles_points = _cmplxNbrsToPoints(all_poles_cmplx)
     print("Poles of all plants: ")
@@ -77,16 +78,18 @@ def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: 
         print(cluster_centers)
 
     fig, ax = plt.subplots()
-
-    ax.plot(all_poles_points[:, 0], all_poles_points[:, 1], '+')
+    for index, label in enumerate(custom_plant_names):
+        label = custom_plant_names[index] if custom_plant_names else f'P{index}'
+        ax.plot(all_poles_points[index*pnbr:(index+1)*pnbr, 0], all_poles_points[index*pnbr:(index+1)*pnbr, 1], '+', label=label, color=f'C{index}')
     if plot_cluster_center:
-        ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='red')
+        ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='black')
     for a in np.ravel(ax):
         a.grid(visible=True)
     fig.tight_layout()
     
-def plot_zeros(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
+def plot_zeros(plant_list: List[control.TransferFunction], custom_plant_names: list[str] = [], plot_cluster_center: bool = False):
     all_zeros_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantZeros)
+    znbr = len(all_zeros_cmplx) / len(plant_list)
 
     all_zeros_points = _cmplxNbrsToPoints(all_zeros_cmplx)
     print("Zeros of all plants: ")
@@ -99,7 +102,9 @@ def plot_zeros(plant_list: List[control.TransferFunction], plot_cluster_center: 
 
     fig, ax = plt.subplots()
 
-    ax.plot(all_zeros_points[:, 0], all_zeros_points[:, 1], '+')
+    for index, label in enumerate(custom_plant_names):
+        label = custom_plant_names[index] if custom_plant_names else f'P{index}'
+        ax.plot(all_zeros_points[index*znbr:(index+1)*znbr, 0], all_zeros_points[index*znbr:(index+1)*znbr, 1], '+', label=label, color=f'C{index}')
     if plot_cluster_center:
         ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='red')
     for a in np.ravel(ax):
