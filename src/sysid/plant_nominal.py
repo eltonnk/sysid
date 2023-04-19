@@ -78,7 +78,7 @@ def plot_poles(plant_list: List[control.TransferFunction], custom_plant_names: l
         print(cluster_centers)
 
     fig, ax = plt.subplots()
-    for index, label in enumerate(custom_plant_names):
+    for index, _ in enumerate(plant_list):
         label = custom_plant_names[index] if custom_plant_names else f'P{index}'
         ax.plot(all_poles_points[index*pnbr:(index+1)*pnbr, 0], all_poles_points[index*pnbr:(index+1)*pnbr, 1], '+', label=label, color=f'C{index}')
     if plot_cluster_center:
@@ -102,7 +102,7 @@ def plot_zeros(plant_list: List[control.TransferFunction], custom_plant_names: l
 
     fig, ax = plt.subplots()
 
-    for index, label in enumerate(custom_plant_names):
+    for index, _ in enumerate(plant_list):
         label = custom_plant_names[index] if custom_plant_names else f'P{index}'
         ax.plot(all_zeros_points[index*znbr:(index+1)*znbr, 0], all_zeros_points[index*znbr:(index+1)*znbr, 1], '+', label=label, color=f'C{index}')
     if plot_cluster_center:
