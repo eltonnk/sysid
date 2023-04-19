@@ -85,6 +85,7 @@ def plot_poles(plant_list: List[control.TransferFunction], custom_plant_names: l
         ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='black')
     for a in np.ravel(ax):
         a.grid(visible=True)
+    ax.legend(loc='upper left', ncol=3)
     fig.tight_layout()
     
 def plot_zeros(plant_list: List[control.TransferFunction], custom_plant_names: list[str] = [], plot_cluster_center: bool = False):
@@ -109,6 +110,7 @@ def plot_zeros(plant_list: List[control.TransferFunction], custom_plant_names: l
         ax.plot(cluster_centers[:, 0], cluster_centers[:, 1], 'o', color='red')
     for a in np.ravel(ax):
         a.grid(visible=True)
+    ax.legend(loc='upper left', ncol=3)
     fig.tight_layout()
 
 
