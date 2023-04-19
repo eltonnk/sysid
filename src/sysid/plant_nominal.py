@@ -85,7 +85,7 @@ def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: 
         a.grid(visible=True)
     fig.tight_layout()
     
-def plot_poles(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
+def plot_zeros(plant_list: List[control.TransferFunction], plot_cluster_center: bool = False):
     all_zeros_cmplx = _getCmplxArrayFrmPlants(plant_list, _getPlantZeros)
 
     all_zeros_points = _cmplxNbrsToPoints(all_zeros_cmplx)
