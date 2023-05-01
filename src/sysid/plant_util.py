@@ -21,6 +21,7 @@ import os
 from copy import copy
 import pandas as pd
 from scipy.interpolate import interp1d
+from scipy.linalg import lstsq
 
 from tkinter.filedialog import askdirectory
 
@@ -29,6 +30,10 @@ from tkinter.filedialog import askdirectory
 NORMALIZING= 'normalizing'
 STANDARDIZING = 'standardizing'
 STANDARD_DATA_FILE_NAME = 'DATA/SISO_ID_DATA_{}.csv'
+
+NORMAL_EQUATION = 'NE'
+QR_FACTORIZATION = 'QR'
+SVD_FACTORIZATION = 'SVD'
 
 # Data manip
 
@@ -154,11 +159,18 @@ class PlantPreGeneratedDesignParams:
         will be manipulated in the id_plant method of the PlantDesignOutcome 
         class to better. Either allowed values for this attributes are defined
         by the NORMALIZING and STANDARDIZING global variables.
+    solver: str
+        Method used to solve the linear least-squares problem that finds the most
+        accurate coefficients for the identified plant from the input/output
+        data. Either allowed values for this attributes are defined
+        by the NORMAL_EQUATION, QR_FACTORIZATION and SVD_FACTORIZATION global variables.
+
 
     """
     num_order                   : int = field(default=0 )
     denum_order                 : int = field(default=1 )
     better_cond_method          : str = field(default='')
+    solver                      : str = field(default='')
 
 def build_regularization_array(
     expBegin: int, 
@@ -273,6 +285,7 @@ class PlantDesignParams(PlantPreGeneratedDesignParams):
             pregen.num_order, 
             pregen.denum_order,
             pregen.better_cond_method,
+            pregen.solver,
             regularization,
             sensor_data_column_names
         )
@@ -489,9 +502,27 @@ class PlantOrganizedIDProblem(PlantOrganizedSensorData):
     def __init__(self, s_data: SensorData, params: PlantDesignParams):
         PlantOrganizedSensorData.__init__(self, s_data, params)
 
-    def train_x(self):
+    def train_x(self, params: PlantDesignParams):
+        if (not params.solver == NORMAL_EQUATION and not params.solver == QR_FACTORIZATION and not params.solver == SVD_FACTORIZATION):
+            raise ValueError('Must use either \'{NORMAL_EQUATION}\',  \'{QR_FACTORIZATION}\' or  \'{SVD_FACTORIZATION}\' method to solve least-squares problem.')
         size_I = self.A.shape[1]
-        self.x =  np.linalg.solve(self.ATA + self.reg*self.reg*np.eye(size_I), self.A.T @ self.b)
+        if params.solver == NORMAL_EQUATION:
+            self.x =  np.linalg.solve(self.ATA + self.reg*self.reg*np.eye(size_I), self.A.T @ self.b)
+        elif params.solver == QR_FACTORIZATION or params.solver == SVD_FACTORIZATION:
+            C = np.block([
+                [self.A],
+                [self.reg*np.eye(size_I)]
+            ])
+            d = np.block([
+                [self.b],
+                [np.zeros((size_I, 1))]
+            ])
+            if params.solver == QR_FACTORIZATION:
+                lapack_driver = 'gelsy'
+            elif params.solver == SVD_FACTORIZATION:
+                lapack_driver = 'gelsd'
+            self.x, _, _, _= lstsq(C, d, lapack_driver=lapack_driver)
+
         # print(f'x={x}')
 
     def find_c_plant_from_x(self) -> Plant:
@@ -832,7 +863,7 @@ class PlantDesignOutcome:
         self.train_perform.compute_conditioning(problem)
 
         # Find the coefficients of the plant's discrete trasnfer function
-        problem.train_x()
+        problem.train_x(params)
 
         # See how well we follow the output sensor data when putting the input data thru the plant
         self.train_perform.compute_performance(problem)

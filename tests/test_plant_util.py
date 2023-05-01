@@ -132,7 +132,7 @@ def test_correct_plant_deduced(basic_tf):
     if ID_SEQ_OPTION == 'a':
         # Generate input signal (PRBS)
         actuator_max_torque = 0.5
-        id_seq_lenght=20.0 # seconds
+        id_seq_lenght=4.0 # seconds
         
         ctrl_period = 200 # microseconds
         sampling_period = ctrl_period * 1e-6 # seconds
@@ -278,6 +278,7 @@ def test_correct_plant_deduced(basic_tf):
             num_order=num_order_discrete,
             denum_order=denum_order_discrete,
             better_cond_method=util.NORMALIZING,
+            solver=util.QR_FACTORIZATION,
             regularization=reg,
             sensor_data_column_names=None,
         )
