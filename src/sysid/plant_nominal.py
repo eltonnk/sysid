@@ -18,7 +18,34 @@ def _getAverageCoeffArray(
     fromWhereFunc: Callable[[control.TransferFunction], List[float]],
     zero_out_phase: bool = False
 ) -> np.ndarray:
-    
+    """Finds a list of coefficients for the numerator o denominator of 
+    the nominal plant in a list of plants
+
+    Parameters
+    ----------
+    plant_list : List[control.TransferFunction]
+        List of identified plants, from which we want to find a average
+        numerator or denominator coefficient
+    fromWhereFunc : Callable[[control.TransferFunction], List[float]]
+        Should either be  _getNumCoeffList to average out numerator coefficients 
+        or should be_getDenCoeffList to average out denominator coefficients.
+    zero_out_phase : bool, optional
+        Should only be used when fromWhereFunc=_getNumCoeffList and to mitigate
+        phase issues due to delay introduced by hardware in input/output data 
+        used during plant identification process. Since we don't consider phase 
+        when computing uncertainty boundary, removing 180 degrees from phase 
+        makes no difference when computing gain bode plots to compute W2, but 
+        make a big difference when finding nominal plant by averaging out tf 
+        coefficients when using  plant_av_method_2. Phase issues can be detected 
+        when plants have similar numerators, but some have all positive 
+        coefficients, and some have all negative coefficients. By default, 
+        False.
+
+    Returns
+    -------
+    np.ndarray
+        List of coefficients of the average numerator or denominator coefficient.
+    """
     # find num or denom order for all plants
     coeff_arrays = []
     list_size_arr = []
@@ -137,6 +164,30 @@ def plant_av_method_1(plant_list: List[control.TransferFunction]) -> control.Tra
     return P_nom
 
 def plant_av_method_2(plant_list: List[control.TransferFunction], zero_out_phase: bool = False) -> control.TransferFunction:
+    """Takes a list of plants and finds the nominal plant, by averaging plant coefficients.
+
+    Works best when all plants have the same numerator and denominator coefficients.
+
+    Parameters
+    ----------
+    plant_list : List[control.TransferFunction]
+        List of identified plants, from which we want to find an average plant
+    zero_out_phase : bool, optional
+        Should only be used to mitigate phase issues due to delay introduced by 
+        hardware in input/output data used during plant identification process. 
+        Since we don't consider phase when computing uncertainty boundary, 
+        removing 180 degrees from phase makes no difference when computing gain
+        bode plots to compute W2, but make a big difference when finding 
+        nominal plant by averaging out tf coefficients when using 
+        plant_av_method_2. Phase issues can be detected when plants have similar
+        numerators, but some have all positive coefficients, and some have all 
+        negative coefficients. By default, False.
+
+    Returns
+    -------
+    control.TransferFunction
+        The nominal plant
+    """
     # Method 2
     # Find tf from average of coefficients
     num_P_nom = _getAverageCoeffArray(plant_list, _getNumCoeffList, zero_out_phase=zero_out_phase)
