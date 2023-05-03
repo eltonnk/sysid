@@ -441,7 +441,7 @@ class PlantOrganizedSensorData:
     def __init__(self, s_data: SensorData, params: PlantDesignParams):
         self.bcm = params.better_cond_method
         if (not self.bcm == NORMALIZING and not self.bcm == STANDARDIZING) and self.bcm:
-            raise ValueError('Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
+            raise ValueError(f'Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
         self.reg = params.regularization
 
         self.N = s_data.N
@@ -504,7 +504,7 @@ class PlantOrganizedIDProblem(PlantOrganizedSensorData):
 
     def train_x(self, params: PlantDesignParams):
         if (not params.solver == NORMAL_EQUATION and not params.solver == QR_FACTORIZATION and not params.solver == SVD_FACTORIZATION):
-            raise ValueError('Must use either \'{NORMAL_EQUATION}\',  \'{QR_FACTORIZATION}\' or  \'{SVD_FACTORIZATION}\' method to solve least-squares problem.')
+            raise ValueError(f'Must use either \'{NORMAL_EQUATION}\',  \'{QR_FACTORIZATION}\' or  \'{SVD_FACTORIZATION}\' method to solve least-squares problem.')
         size_I = self.A.shape[1]
         if params.solver == NORMAL_EQUATION:
             self.x =  np.linalg.solve(self.ATA + self.reg*self.reg*np.eye(size_I), self.A.T @ self.b)
@@ -1019,7 +1019,7 @@ class PlantProcessMaterialGenerator:
         elif m.group('bcm') == 'st':
             bcm = STANDARDIZING
         else:
-            raise ValueError('Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
+            raise ValueError(f'Must use either \'{NORMALIZING}\' or \'{STANDARDIZING}\' as method to improve data conditionning')
         
         pregen_params = PlantPreGeneratedDesignParams(int(m.group('num')),int(m.group('den')),bcm)
 
