@@ -15,20 +15,27 @@ def _getDenCoeffList(p: control.TransferFunction) -> List[float]:
 
 def _getAverageCoeffArray(
     plant_list: List[control.TransferFunction], 
-    fromWhereFunc: Callable[[control.TransferFunction], List[float]]
+    fromWhereFunc: Callable[[control.TransferFunction], List[float]],
+    zero_out_phase: bool = False
 ) -> np.ndarray:
     
     # find num or denom order for all plants
+    coeff_arrays = []
     list_size_arr = []
     for p in plant_list:
-        list_size_arr.append(fromWhereFunc(p).size)
+        coeff_array = fromWhereFunc(p)
+        if zero_out_phase and all(coeff_array < 0):
+            coeff_array = -1*coeff_array
+        coeff_arrays.append(coeff_array)
+        list_size_arr.append(coeff_array.size)
 
     list_av_coef = []
     # we find average of all coefficients. We do this for x coefficients, where x
     # is the highest num or denom for all plants + 1
+
     for index in range(max(list_size_arr)):
         try: 
-            list_av_coef.append(np.mean([fromWhereFunc(p)[index] for p in plant_list]))
+            list_av_coef.append(np.mean([coeff_array[index] for coeff_array in coeff_arrays]))
         except:
             list_av_coef.insert(0,0)
     return np.array(list_av_coef)
@@ -129,10 +136,10 @@ def plant_av_method_1(plant_list: List[control.TransferFunction]) -> control.Tra
 
     return P_nom
 
-def plant_av_method_2(plant_list: List[control.TransferFunction]) -> control.TransferFunction:
+def plant_av_method_2(plant_list: List[control.TransferFunction], zero_out_phase: bool = False) -> control.TransferFunction:
     # Method 2
     # Find tf from average of coefficients
-    num_P_nom = _getAverageCoeffArray(plant_list, _getNumCoeffList)
+    num_P_nom = _getAverageCoeffArray(plant_list, _getNumCoeffList, zero_out_phase=zero_out_phase)
     den_P_nom = _getAverageCoeffArray(plant_list, _getDenCoeffList)
     P_nom_av = control.tf(num_P_nom, den_P_nom)
     
