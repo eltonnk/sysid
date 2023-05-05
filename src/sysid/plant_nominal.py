@@ -257,14 +257,34 @@ def add_list_plant_to_mag_plot(
     w_shared:np.ndarray,
     ax: list[Axes], 
     plant_list: list[control.TransferFunction],
-    custom_plant_names: list[str] = []
+    custom_plant_names: str | list[str] = None,
+    custom_plant_colors: str | list[str] = None,
 ):
+    
+    names_is_list = isinstance(custom_plant_names, list)
+    names_is_str = isinstance(custom_plant_names, str)
+    colors_is_list = isinstance(custom_plant_colors, list)
+    colors_is_str = isinstance(custom_plant_colors, str)
+
     list_mag_abs = np.vstack([control.bode(plant, w_shared, plot=False)[0] for plant in plant_list])
     list_mag_dB = 20 * np.log10(list_mag_abs)
     for mag_dB, mag_abs, index in zip(list_mag_dB, list_mag_abs, range(len(list_mag_dB))):
-        label = custom_plant_names[index] if custom_plant_names else f'P{index}'
-        ax[0].plot(w_shared, mag_dB, label=label, color=f'C{index}')
-        ax[1].plot(w_shared, mag_abs, label=label, color=f'C{index}')
+        if names_is_list:
+            label = custom_plant_names[index]
+        elif names_is_str:
+            label = custom_plant_names
+        else:
+            label = f'P{index}'
+
+        if colors_is_list:
+            color = custom_plant_colors[index]
+        elif colors_is_str:
+            color = custom_plant_colors
+        else:
+            color = f'C{index}'
+
+        ax[0].plot(w_shared, mag_dB, label=label, color=color)
+        ax[1].plot(w_shared, mag_abs, label=label, color=color)
 
 def finish_magnitude_plots(fig:Figure, ax:Axes):
     for a in np.ravel(ax):
