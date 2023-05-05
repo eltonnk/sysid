@@ -283,8 +283,12 @@ def add_list_plant_to_mag_plot(
         else:
             color = f'C{index}'
 
-        ax[0].plot(w_shared, mag_dB, label=label, color=color)
-        ax[1].plot(w_shared, mag_abs, label=label, color=color)
+        if names_is_str and index != 0:
+            ax[0].plot(w_shared, mag_dB, color=color)
+            ax[1].plot(w_shared, mag_abs, color=color)
+        else:
+            ax[0].plot(w_shared, mag_dB, label=label, color=color)
+            ax[1].plot(w_shared, mag_abs, label=label, color=color)
 
 def finish_magnitude_plots(fig:Figure, ax:Axes):
     for a in np.ravel(ax):
