@@ -4,6 +4,8 @@ from typing import List, Callable
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
+from matplotlib.text import Annotation
 
 from sklearn.cluster import MeanShift
 
@@ -259,7 +261,7 @@ def add_list_plant_to_mag_plot(
     plant_list: list[control.TransferFunction],
     custom_plant_names: str | list[str] = None,
     custom_plant_colors: str | list[str] = None,
-):
+) -> tuple[list[Line2D], list[Line2D]]:
     
     names_is_list = isinstance(custom_plant_names, list)
     names_is_str = isinstance(custom_plant_names, str)
@@ -268,6 +270,8 @@ def add_list_plant_to_mag_plot(
 
     list_mag_abs = np.vstack([control.bode(plant, w_shared, plot=False)[0] for plant in plant_list])
     list_mag_dB = 20 * np.log10(list_mag_abs)
+    lines_dB = []
+    lines_abs = []
     for mag_dB, mag_abs, index in zip(list_mag_dB, list_mag_abs, range(len(list_mag_dB))):
         if names_is_list:
             label = custom_plant_names[index]
@@ -289,14 +293,68 @@ def add_list_plant_to_mag_plot(
         else:
             ax[0].plot(w_shared, mag_dB, label=label, color=color)
             ax[1].plot(w_shared, mag_abs, label=label, color=color)
+    
+    return lines_dB, lines_abs
 
-def finish_magnitude_plots(fig:Figure, ax:Axes):
+def finish_magnitude_plots(fig:Figure, ax:list[Axes], line_tuple: tuple[list[Line2D], list[Line2D]] = None):
     for a in np.ravel(ax):
         a.set_xlabel(r'$\omega$ (rad/s)')
         a.set_xscale('log')
         a.grid(visible=True)
-    ax[0].legend(loc='lower left', ncol=3)
-    ax[1].legend(loc='upper right', ncol=3)
+    if not line_tuple:
+        ax[0].legend(loc='lower left', ncol=3)
+        ax[1].legend(loc='upper right', ncol=3)
+        fig.tight_layout()
+        return 
+
+    (lines_dB, lines_abs) = line_tuple
+
+    annot_dB = ax[0].annotate(
+        "",
+        xy=(0, 0),
+        xytext=(20, 20),
+        textcoords="offset points",
+        bbox=dict(boxstyle="round", fc="w"),
+        arrowprops=dict(arrowstyle="->"),
+    )
+    annot_dB.set_visible(False)
+
+    annot_abs = ax[0].annotate(
+        "",
+        xy=(0, 0),
+        xytext=(20, 20),
+        textcoords="offset points",
+        bbox=dict(boxstyle="round", fc="w"),
+        arrowprops=dict(arrowstyle="->"),
+    )
+    annot_abs.set_visible(False)
+
+    def update_annot(annot: Annotation, line: Line2D, idx:int):
+        posx, posy = [line.get_xdata()[idx], line.get_ydata()[idx]]
+        annot.xy = (posx, posy)
+        text = f"{line.get_label()}"
+        annot.set_text(text)
+        # annot.get_bbox_patch().set_facecolor(cmap(norm(c[ind["ind"][0]])))
+        annot.get_bbox_patch().set_alpha(0.4)
+
+
+    def hover(event):
+        for annot, lines in zip([annot_dB, annot_abs], [lines_dB, lines_abs]):
+            vis = annot.get_visible()
+            if event.inaxes == ax:
+                for line in lines:
+                    cont, ind = line.contains(event)
+                    if cont:
+                        update_annot(annot, line, ind["ind"][0])
+                        annot.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+
     fig.tight_layout()
 
 def plot_nom_vs_all(P_nom: control.TransferFunction, plant_list: list[control.TransferFunction]):
