@@ -339,9 +339,9 @@ def finish_magnitude_plots(fig:Figure, ax:list[Axes], line_tuple: tuple[list[Lin
 
 
     def hover(event):
-        for annot, lines in zip([annot_dB, annot_abs], [lines_dB, lines_abs]):
+        for a, annot, lines in zip(ax, [annot_dB, annot_abs], [lines_dB, lines_abs]):
             vis = annot.get_visible()
-            if event.inaxes == ax:
+            if event.inaxes == a:
                 for line in lines:
                     cont, ind = line.contains(event)
                     if cont:
