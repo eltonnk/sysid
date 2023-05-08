@@ -288,12 +288,15 @@ def add_list_plant_to_mag_plot(
             color = f'C{index}'
 
         if names_is_str and index != 0:
-            ax[0].plot(w_shared, mag_dB, color=color)
-            ax[1].plot(w_shared, mag_abs, color=color)
+            (line_dB, ) = ax[0].plot(w_shared, mag_dB, color=color)
+            (line_abs, ) = ax[1].plot(w_shared, mag_abs, color=color)
         else:
-            ax[0].plot(w_shared, mag_dB, label=label, color=color)
-            ax[1].plot(w_shared, mag_abs, label=label, color=color)
-    
+            (line_dB, ) = ax[0].plot(w_shared, mag_dB, label=label, color=color)
+            (line_abs, ) = ax[1].plot(w_shared, mag_abs, label=label, color=color)
+            
+        lines_dB.append(line_dB)
+        lines_abs.append(line_abs)
+        
     return lines_dB, lines_abs
 
 def finish_magnitude_plots(fig:Figure, ax:list[Axes], line_tuple: tuple[list[Line2D], list[Line2D]] = None):
